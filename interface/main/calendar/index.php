@@ -149,13 +149,17 @@ if (isset($catid)) {
     pnVarCleanFromInput('catid');
 }
 
-if (pnModAvailable($module)) {
-    if (pnModLoad($module, $type)) {
-        // Run the function
-        $return = pnModFunc($module, $type, $func);
-    } else {
-        $return = false;
-    }
+// we already know the module is available since the calendar is the only one available so we aren't going to check
+// if its available.  Instead we will load the appropriate PostCalendar file pn<type>.php, the language translation
+// PostCalendar/pnlang/eng/<type>.php, and finally the PostCalendar/pntables.php file to get ready for calling
+// the module function.  The PostCalendar file pn<type>.php will hold the PHP function of <module>_<type>_<func>()
+// which is what gets called.
+// Note that the PostCalendar/pn<type>.php often loads its corresponding api file which is PostCalendar/pn<type>api.php
+// for documentation default would be to load PostCalendar/pnuser.php which has a function postcalendar_user_view()
+// pnModFunc will execute postcalendar_user_view() and store the result in $return
+if (pnModLoad($module, $type)) {
+    // Run the function which makes a call to PostCalendar/pn<type>.php
+    $return = pnModFunc($module, $type, $func);
 } else {
     $return = false;
 }

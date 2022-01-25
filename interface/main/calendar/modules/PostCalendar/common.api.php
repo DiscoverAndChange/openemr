@@ -703,6 +703,10 @@ function dtSecDur($date, $time, $dur)
     return $time_sec + $dur;
 }
 
+/**
+ * Returns an empty string as its no longer used.
+ * @return string
+ */
 function postcalendar_footer()
 {
     // lets get the module's information

@@ -578,6 +578,50 @@ function postcalendar_userapi_buildView($args)
         $tpl->assign_by_ref('DATE', $Date);
         $tpl->assign('SCHEDULE_BASE_URL', pnModURL(__POSTCALENDAR__, 'user', 'submit'));
         $tpl->assign_by_ref('intervals', $intervals);
+        $tpl->assign("openhour", $GLOBALS['schedule_start']);
+        $tpl->assign("closehour", $GLOBALS['schedule_end']);
+
+        if ($GLOBALS['time_display_format'] == 1) {
+            $tpl->assign('timeformat', 12);
+        } else {
+            $tpl->assign('timeformat', 0);
+        }
+
+        ;
+
+        $tpl->assign('JAVASCRIPT_BASE_URL', pnModURL(__POSTCALENDAR__,'user','view',
+            array('tplview'=>($template_view ?? ''),
+                'viewtype'=>$viewtype,
+                'Date'=> '~REPLACEME~',
+                'pc_username'=>($pc_username ?? ''),
+                'pc_category'=>($category ?? ''),
+                'pc_topic'=>($topic ?? ''))));
+        $tpl->assign('JAVASCRIPT_PRINT_URL', pnModURL(__POSTCALENDAR__,'user','view',
+            array('tplview'=>($template_view ?? ''),
+                'viewtype'=>$viewtype,
+                'Date'=> $Date,
+                'print'=> 1,
+                'pc_username'=>($pc_username ?? ''),
+                'pc_category'=>($category ?? ''),
+                'pc_topic'=>($topic ?? ''))));
+
+        pnModURL(__POSTCALENDAR__,'user','view', array('tplview'=>($template_view ?? ''),
+                'viewtype'=>$viewtype,
+                'Date'=> '~REPLACEME~',
+                'pc_username'=>($pc_username ?? ''),
+                'pc_category'=>($category ?? ''),
+                'pc_topic'=>($topic ?? '')));
+
+        // setup the variables needed for the top left calendar preview selector
+        postcalendar_userapi_monthly_calendar_selector_vars($tpl, $eventsByDate, $Date);
+
+        postcalendar_userapi_selector_provider_vars($tpl, $provinfo);
+
+        if ($viewtype == 'day') {
+            if (!empty($eventsByDate)) {
+                postcalendar_userapi_day_view_setup_vars($tpl, $eventsByDate);
+            }
+        }
     };
 
     //=================================================================
@@ -602,6 +646,201 @@ function postcalendar_userapi_buildView($args)
     //  Return the output
     //=================================================================
     return $output;
+}
+
+function postcalendar_userapi_selector_provider_vars($tpl, $providers)
+{
+    $facilitySelectorList = [];
+    $providerSelectorList = [];
+
+    // ==============================
+    // FACILITY FILTERING (lemonsoftware)
+    /*********************************************************************
+    $facilities = getFacilities();
+     *********************************************************************/
+    if (!empty($_SESSION['authorizeduser']) && ($_SESSION['authorizeduser'] == 1)) {
+        $facilities = getFacilities();
+    } else {
+        $facilities = getUserFacilities($_SESSION['authUserID']); // from users_facility
+        if (count($facilities) == 1)
+            OpenEMR\Common\Session\SessionUtil::setSession('pc_facility', key($facilities));
+    }
+    /********************************************************************/
+    if (count($facilities) > 1) {
+        if (!$GLOBALS['restrict_user_facility']) {
+            $facilitySelectorList[] = ["value" => 0, 'color' => ''
+                , 'selected' => !$_SESSION['pc_facility'], 'text' => xlt('All Facilities')];
+        }
+        foreach ($facilities as $fa) {
+            $facilitySelectorList[] = ['value' => $fa['id'], 'color' => $fa['color']
+                , 'selected' => $_SESSION['pc_facility'] == $fa['id'], 'text' => $fa['name']];
+        }
+    }
+
+    //FACILITY FILTERING (CHEMED)
+    if ( $_SESSION['pc_facility'] ) {
+        $provinfo = getProviderInfo('%', true, $_SESSION['pc_facility']);
+    } else {
+        $provinfo = getProviderInfo();
+    }
+
+    $providerUsernames = [];
+    foreach ($providers as $provider)
+    {
+        $providerUsernames[$provider['username']] = $provider['username'];
+    }
+
+    $providerSelectorList[] = ['value' => '__PC_ALL__', 'text' => xlt("All Users"), 'selected' => false];
+    foreach ($provinfo as $doc) {
+        $username = $doc['username'];
+        $providerSelectorList[] = [
+            'value' => $username
+            , 'selected' => isset($providerUsernames[$username])
+            , 'text' => $doc['lname'] . ', ' . $doc['fname']
+        ];
+    }
+
+    $tpl->assign('facilitySelectorList', $facilitySelectorList);
+    $tpl->assign('providerSelectorList', $providerSelectorList);
+    $tpl->assign('pc_facility', $_SESSION['pc_facility']);
+}
+
+function postcalendar_userapi_monthly_calendar_selector_vars($tpl, $eventsByDate, $Date)
+{
+    $DOWlist = array();
+    $tmpDOW = pnModGetVar(__POSTCALENDAR__, 'pcFirstDayOfWeek');
+    // bound check and auto-correction
+    if ($tmpDOW < 0 || $tmpDOW > 6) {
+        pnModSetVar(__POSTCALENDAR__, 'pcFirstDayOfWeek', '0');
+        $tmpDOW = 0;
+    }
+    while (count($DOWlist) < 7) {
+        array_push($DOWlist, $tmpDOW);
+        $tmpDOW++;
+        if ($tmpDOW > 6) {
+            $tmpDOW = 0;
+        }
+    }
+    $tpl->assign('DOWlist', $DOWlist);
+
+    $atmp = array_keys($eventsByDate);
+    $caldate = strtotime($atmp[0]);
+    $caldateEnd = strtotime($atmp[6] ?? '');
+
+    // to make a complete week row we need to compute the real
+    // start and end dates for the view
+    list ($year, $month, $day) = explode(" ", date('Y m d', $caldate));
+    $startdate = strtotime($year.$month."01");
+    $enddate = strtotime($year.$month.date("t", $startdate)." 23:59");
+    while (date('w', $startdate) != $DOWlist[0]) { $startdate -= 60*60*24; }
+    while (date('w', $enddate) != $DOWlist[6]) { $enddate += 60*60*24; }
+
+    $currdate = $startdate;
+    $calendar = [];
+    $week = [];
+    while ($currdate <= $enddate) {
+        if (date('w', $currdate) == $DOWlist[0]) {
+            // start of week row
+            $week = [];
+        }
+
+        // set the TD class
+        $tdClass = "tdMonthDay-small";
+        if (date('m', $currdate) != $month) {
+            $tdClass = "tdOtherMonthDay-small";
+        }
+        if (is_weekend_day(date('w', $currdate))) {
+            $tdClass = "tdWeekend-small";
+        }
+        if (is_holiday(date('Y-m-d', $currdate))) {
+            $tdClass = "tdHoliday-small";
+        }
+
+        if (date('Ymd', $currdate) == $Date) {
+            // $Date is defined near the top of this file
+            // and is equal to whatever date the user has clicked
+            $tdClass .= " currentDate";
+        }
+
+        // add a class so that jQuery can grab these days for the 'click' event
+        $tdClass .= " tdDatePicker";
+
+        $day = ['class' => $tdClass
+            , 'id' => date("Ymd", $currdate)
+            , 'title' => "Go to " . date('M d, Y', $currdate)
+            , 'text' => date('d', $currdate)
+        ];
+        $week[] = $day;
+
+        // end of week row
+        if (date('w', $currdate) == $DOWlist[6]) {
+            $calendar[] = $week;
+        }
+
+        // time correction = plus 1000 seconds, for some unknown reason
+        //$currdate += (60*60*24)+1000;
+
+        ////////
+        $currdate = strtotime("+1 day", $currdate);
+        ////////
+    }
+    $tpl->assign("DOWCalendar", $calendar);
+}
+
+function postcalendar_userapi_day_view_setup_vars($tpl, $eventsByDate)
+{
+
+    $atmp = array_keys($eventsByDate);
+    $calDate = strtotime($atmp[0]);
+    $tpl->assign("TODAY_DATE_NAV_HEADER", dateformat($calDate, true));
+    $tpl->assign('caldate', $calDate);
+    $tpl->assign('caldateFormatted', date('F', $calDate));
+    $cMonth =  date("m", $calDate);
+    $cYear = date("Y", $calDate);
+    $cDay = date("d", $calDate);
+    $tpl->assign('cMonth',$cMonth);
+    $tpl->assign('cYear', $cYear);
+    $tpl->assign('cDay', $cDay);
+    $prevMonth = postcalendar_userapi_day_view_calculate_previous_month($cDay, $cMonth, $cYear);
+    $nextMonth = postcalendar_userapi_day_view_calculate_next_month($cDay, $cMonth, $cYear);
+    $tpl->assign('prevMonth', $prevMonth);
+    $tpl->assign('prevMonthFormatted', date("F", strtotime($prevMonth)));
+
+    $tpl->assign('nextMonth', $nextMonth);
+    $tpl->assign('nextMonthFormatted', date("F", strtotime($nextMonth)));
+}
+
+// TODO: @adunsulag why don't we just use php date functions with an INTERVAL 1 MONTH and let php do this?
+// what about using this stuff?
+/*
+ * $prev_month = Date_Calc::beginOfPrevMonth(1, $the_month, $the_year, '%Y%m%d');
+    $next_month = Date_Calc::beginOfNextMonth(1, $the_month, $the_year, '%Y%m%d');
+ */
+function postcalendar_userapi_day_view_calculate_previous_month($cDay, $cMonth, $cYear)
+{
+    $pDay = $cDay;
+    $pMonth = $cMonth - 1;
+    $pYear = $cYear;
+    if ($pMonth < 1) {
+        $pMonth = 12;
+        $pYear = $cYear - 1;
+    }
+    while (! checkdate($pMonth, $pDay, $pYear)) { $pDay = $pDay - 1; }
+    return sprintf("%d%02d%02d",$pYear,$pMonth,$pDay);
+}
+
+// TODO: @adunsulag why don't we just use php date functions with an INTERVAL 1 MONTH and let php do this?
+function postcalendar_userapi_day_view_calculate_next_month($cDay, $cMonth, $cYear)
+{
+    $nDay = $cDay;
+    $nMonth = $cMonth + 1;
+    $nYear = $cYear;
+    if ($nMonth > 12) {
+        $nMonth = 1;
+        $nYear = $cYear + 1;
+    }
+    while (! checkdate($nMonth, $nDay, $nYear)) { $nDay = $nDay - 1; }
+    return sprintf("%d%02d%02d",$nYear,$nMonth,$nDay);
 }
 
 /**
