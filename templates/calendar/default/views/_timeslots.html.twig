@@ -1,0 +1,30 @@
+<td id='times'>
+    <div class='table-responsive'>
+        <table class='table'>
+            <tr>
+                <td class='timeslot providerXbtn' data-username='__PC_ALL__'><i class='fa fa-lg fa-user-md'></i></td>
+            </tr>
+            {#//============================================================================================================================#}
+            {#// Check global time preference so that 24 and 12hour preference is displayed properly#}
+
+
+            {% for slottime in times %}
+                {% set startampm = (slottime['mer']) == "pm" ? 2 : 1  %}
+                {% set starttimeh = slottime['hour'] %}
+                {% set disptimeh = (starttimeh > 12) ? (starttimeh - timeformat) : starttimeh %}
+                {% set starttimem = slottime['minute'] %}
+                {% set slotendmins = starttimeh * 60 + starttimem + interval %}
+                {#    // default to the first displayed provider#}
+                {% set providerid = providers[0]['id'] %}
+
+                <tr>
+                    <td class='timeslot'>
+                        <a href='javascript:newEvt({{ startampm|attr_js  }},{{ starttimeh|attr_js }},{{ starttimem|attr_js  }},{{ Date|attr_js}},{{ providerid|attr_js }}),0)'
+                           title='{{ "New Appointment"|xla}}' alt='{{ "New Appointment"|xla}}'
+                        >{{ disptimeh|text  }}:{{ starttimem|text }}</a>
+                    </td>
+                </tr>
+            {% endfor %}
+        </table>
+    </div>
+</td>

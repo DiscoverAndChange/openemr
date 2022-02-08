@@ -574,6 +574,7 @@ function postcalendar_userapi_buildView($args)
         $tpl->assign_by_ref('WEEK_END_DATE', $week_view_end);
         $tpl->assign_by_ref('MONTH_START_DATE', $month_view_start);
         $tpl->assign_by_ref('MONTH_END_DATE', $month_view_end);
+        $tpl->assign('NEXT_MONTH_DATE', $next_month);
         $tpl->assign_by_ref('TODAY_DATE', $today_date);
         $tpl->assign_by_ref('DATE', $Date);
         $tpl->assign('SCHEDULE_BASE_URL', pnModURL(__POSTCALENDAR__, 'user', 'submit'));
@@ -793,6 +794,8 @@ function postcalendar_userapi_day_view_setup_vars($tpl, $eventsByDate)
     $atmp = array_keys($eventsByDate);
     $calDate = strtotime($atmp[0]);
     $tpl->assign("TODAY_DATE_NAV_HEADER", dateformat($calDate, true));
+    $tpl->assign("firstEventDFY", date("d F Y", strtotime($atmp[0])));
+    $tpl->assign("firstEventDayOfWeek", date("l", strtotime($atmp[0])));
     $tpl->assign('caldate', $calDate);
     $tpl->assign('caldateFormatted', date('F', $calDate));
     $cMonth =  date("m", $calDate);

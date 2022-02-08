@@ -41,8 +41,87 @@ class PostCalendarTwigExtensions  extends AbstractExtension
                 'is_weekend_day', function($date) {
                     return is_weekend_day($date);
                 }
+            ),
+            new TwigFunction(
+                'PrintDatePicker', [$this, 'PrintDatePicker']
             )
         ];
+    }
+
+    /* output a small calendar, based on the date-picker code from the normal calendar */
+    public function PrintDatePicker($dateString, $DOWlist, $daynames) {
+
+        $caldate = strtotime($dateString);
+        $cMonth = date("m", $caldate);
+        $cYear = date("Y", $caldate);
+        $cDay = date("d", $caldate);
+
+        echo '<table>';
+        echo '<tr>';
+        echo '<td colspan="7" class="tdMonthName-small">';
+        echo text(date('F Y', $caldate));
+        echo '</td>';
+        echo '</tr>';
+        echo '<tr>';
+        foreach ($DOWlist as $dow) {
+            echo "<td class='tdDOW-small'>" . text($daynames[$dow]) . "</td>";
+        }
+        echo '</tr>';
+
+        // to make a complete week row we need to compute the real
+        // start and end dates for the view
+        list ($year, $month, $day) = explode(" ", date('Y m d', $caldate));
+        $startdate = strtotime($year.$month."01");
+        while (date('w', $startdate) != $DOWlist[0]) { $startdate -= 60*60*24; }
+
+        $enddate = strtotime($year.$month.date("t", $month));
+        while (date('w', $enddate) != $DOWlist[6]) { $enddate += 60*60*24; }
+
+        $currdate = $startdate;
+        while ($currdate <= $enddate) {
+            if (date('w', $currdate) == $DOWlist[0]) {
+                echo "<tr>";
+            }
+
+            // we skip outputting some days
+            $skipit = false;
+
+            // set the TD class
+            $tdClass = "tdMonthDay-small";
+            if (date('m', $currdate) != $month) {
+                $tdClass = "tdOtherMonthDay-small";
+                $skipit = true;
+            }
+            if ((date('w', $currdate) == 0) || (date('w', $currdate) == 6)) {
+                $tdClass = "tdWeekend-small";
+            }
+
+            if (!empty($Date) && (date('Ymd',$currdate) == $Date)) {
+                // $Date is defined near the top of this file
+                // and is equal to whatever date the user has clicked
+                $tdClass .= " currentDate";
+            }
+
+            // add a class so that jQuery can grab these days for the 'click' event
+            $tdClass .= " tdDatePicker";
+
+            // output the TD
+            $td = "<td ";
+            $td .= "class=\"" . attr($tdClass) . "\" ";
+            //$td .= "id=\"" . attr(date("Ymd", $currdate)) . "\" ";
+            $td .= "id=\"" . attr(date("Ymd", $currdate)) . "\" ";
+            $td .= "title=\"Go to week of " . attr(date('M d, Y', $currdate)) . "\" ";
+            $td .= "> " . text(date('d', $currdate)) . "</td>\n";
+            if ($skipit == true) { echo "<td></td>"; }
+            else { echo $td; }
+
+            // end of week row
+            if (date('w', $currdate) == $DOWlist[6]) echo "</tr>\n";
+
+            // time correction = plus 1000 seconds, for some unknown reason
+            $currdate += (60*60*24)+1000;
+        }
+        echo "</table>";
     }
 
     private function overlapDetection($times, $interval, $events, $calEndMin, $calStartMin, $providerid)
