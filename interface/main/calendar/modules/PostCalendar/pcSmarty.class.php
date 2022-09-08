@@ -151,6 +151,11 @@ class pcSmarty extends Smarty_Legacy
         $this->assign('24HOUR_TIME', _SETTING_TIME_24HOUR);
         $this->assign_by_ref('MODULE_NAME', $pcDisplayName);
         $this->assign_by_ref('MODULE_DIR', $pcDir);
+
+        // get some of our globals out
+        $this->assign('translate_appt_categories', $GLOBALS['translate_appt_categories']);
+        $this->assign('session_language_choice', $_SESSION['language_choice']);
+
         //=================================================================
         //  Find out what Template we're using
         //=================================================================
