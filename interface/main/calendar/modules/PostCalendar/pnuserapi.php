@@ -577,6 +577,8 @@ function postcalendar_userapi_buildView($args)
         $tpl->assign('NEXT_MONTH_DATE', $next_month);
         $tpl->assign_by_ref('TODAY_DATE', $today_date);
         $tpl->assign_by_ref('DATE', $Date);
+        $tpl->assign('DATE_TIMESTAMP', strtotime($Date));
+        $tpl->assign('IS_TODAY', $Date == date('Ymd'));
         $tpl->assign('SCHEDULE_BASE_URL', pnModURL(__POSTCALENDAR__, 'user', 'submit'));
         $tpl->assign_by_ref('intervals', $intervals);
         $tpl->assign("openhour", $GLOBALS['schedule_start']);
@@ -614,7 +616,7 @@ function postcalendar_userapi_buildView($args)
                 'pc_topic'=>($topic ?? '')));
 
         // setup the variables needed for the top left calendar preview selector
-        postcalendar_userapi_monthly_calendar_selector_vars($tpl, $eventsByDate, $Date);
+        postcalendar_userapi_monthly_calendar_selector_vars($tpl, $eventsByDate, $Date, $provinfo, $times);
 
         postcalendar_userapi_selector_provider_vars($tpl, $provinfo);
 
@@ -622,6 +624,8 @@ function postcalendar_userapi_buildView($args)
             if (!empty($eventsByDate)) {
                 postcalendar_userapi_day_view_setup_vars($tpl, $eventsByDate);
             }
+        } else if ($viewtype == 'month') {
+            postcalendar_userapi_month_view_setup_vars($tpl, $eventsByDate, $Date, $provinfo, $times);
         }
     };
 
@@ -706,7 +710,7 @@ function postcalendar_userapi_selector_provider_vars($tpl, $providers)
     $tpl->assign('pc_facility', $_SESSION['pc_facility']);
 }
 
-function postcalendar_userapi_monthly_calendar_selector_vars($tpl, $eventsByDate, $Date)
+function postcalendar_userapi_monthly_calendar_selector_vars($tpl, $eventsByDate, $Date, $provinfo, $times)
 {
     $DOWlist = array();
     $tmpDOW = pnModGetVar(__POSTCALENDAR__, 'pcFirstDayOfWeek');
@@ -731,10 +735,14 @@ function postcalendar_userapi_monthly_calendar_selector_vars($tpl, $eventsByDate
     // to make a complete week row we need to compute the real
     // start and end dates for the view
     list ($year, $month, $day) = explode(" ", date('Y m d', $caldate));
-    $startdate = strtotime($year.$month."01");
-    $enddate = strtotime($year.$month.date("t", $startdate)." 23:59");
-    while (date('w', $startdate) != $DOWlist[0]) { $startdate -= 60*60*24; }
-    while (date('w', $enddate) != $DOWlist[6]) { $enddate += 60*60*24; }
+    $startdate = strtotime($year . $month . "01");
+    $enddate = strtotime($year . $month . date("t", $startdate) . " 23:59");
+    while (date('w', $startdate) != $DOWlist[0]) {
+        $startdate -= 60 * 60 * 24;
+    }
+    while (date('w', $enddate) != $DOWlist[6]) {
+        $enddate += 60 * 60 * 24;
+    }
 
     $currdate = $startdate;
     $calendar = [];
@@ -768,7 +776,7 @@ function postcalendar_userapi_monthly_calendar_selector_vars($tpl, $eventsByDate
 
         $day = ['class' => $tdClass
             , 'id' => date("Ymd", $currdate)
-            , 'title' => "Go to " . date('M d, Y', $currdate)
+            , 'title' => xl("Go to ") . date('M d, Y', $currdate)
             , 'text' => date('d', $currdate)
         ];
         $week[] = $day;
@@ -786,6 +794,111 @@ function postcalendar_userapi_monthly_calendar_selector_vars($tpl, $eventsByDate
         ////////
     }
     $tpl->assign("DOWCalendar", $calendar);
+}
+
+function postcalendar_userapi_month_view_setup_vars(pcSmarty $tpl, $eventsByDate, $Date, $provinfo, $times) {
+
+    $DOWlist = $tpl->getVar('DOWlist') ?? [];
+    $atmp = array_keys($eventsByDate);
+    $caldate = strtotime($atmp[0]);
+    list ($year, $month, $day) = explode(" ", date('Y m d', $caldate));
+    $startdate = strtotime($year . $month . "01");
+    $enddate = strtotime($year . $month . date("t", $startdate) . " 23:59");
+    while (date('w', $startdate) != $DOWlist[0]) {
+        $startdate -= 60 * 60 * 24;
+    }
+    while (date('w', $enddate) != $DOWlist[6]) {
+        $enddate += 60 * 60 * 24;
+    }
+
+    $currdate = $startdate;
+
+    // we need to get the names to put at the header for the month
+    $dowCount = 0;
+    $defaultDate = "";
+    $dowListNames = [];
+    foreach ($eventsByDate as $date => $events) {
+        if ($defaultDate == "") $defaultDate = date("Ymd", strtotime($date));
+        $dowListNames[] = date("D", strtotime($date));
+        if ($dowCount++ == 6) { break; }
+    }
+    $tpl->assign("dowListNames", $dowListNames);
+
+
+    // first we need to setup our start and end time which are used in the weekly / monthly view
+    $calStartMin = ($times[0]['hour'] * 60) + $times[0]['minute'];
+    $tmpTime = $times[count($times)-1];
+    $calEndMin = ($tmpTime['hour'] * 60) + $tmpTime['minute'];
+
+    // we need to organize our calendars by providers for the monthly main view
+    $calendarsByProvider = [];
+    foreach ($provinfo as $provider) {
+        $providerCalendar = [
+            'provider' => [
+                'id' => $provider['id']
+                ,'fname' => $provider['fname']
+                ,'lname' => $provider['lname']
+            ]
+            ,'calendar' => []
+        ];
+
+        $week = [];
+
+        // now we setup the variables for the main view
+        foreach ($eventsByDate as $date => $events) {
+
+            $dateAsTime = strtotime($date);
+            $eventdate = substr($date, 0, 4) . substr($date, 5, 2) . substr($date, 8, 2);
+
+            $gotoURL = pnModURL(__POSTCALENDAR__, 'user', 'view',
+                array('tplview' => ($template_view ?? null),
+                    'viewtype' => 'day',
+                    'Date' => date("Ymd", strtotime($date)),
+                    'pc_username' => ($pc_username ?? null),
+                    'pc_category' => ($category ?? null),
+                    'pc_topic' => ($topic ?? null)));
+            $classForWeekend = is_weekend_day(date('w', strtotime($date))) ? 'weekend-day' : 'work-day';
+            $day = [
+                'title' => xl("Go to ") . date('d M Y', strtotime($date))
+                , 'text' => date('d', strtotime($date))
+                , 'url' => $gotoURL
+                , 'class' => $classForWeekend
+                , 'events' => []
+            ];
+
+            if (date("w", $dateAsTime) == $DOWlist[0]) {
+                $week = [];
+            }
+
+            // now add all of our events for the day
+            foreach ($events as $event) {
+                if ($provider['id'] != $event['aid'] && $event['aid'] != 0) {
+                    continue;
+                }
+
+                // Omit IN and OUT events to reduce clutter in this month view
+                if (($event['catid'] == 2) || ($event['catid'] == 3)) {
+                    continue;
+                }
+                // specially handle all-day events
+                if ($event['alldayevent'] == 1) {
+                    $tmpTime = $times[0];
+                    if (strlen($tmpTime['hour']) < 2) { $tmpTime['hour'] = "0".$tmpTime['hour']; }
+                    if (strlen($tmpTime['minute']) < 2) { $tmpTime['minute'] = "0".$tmpTime['minute']; }
+                    $event['startTime'] = $tmpTime['hour'].":".$tmpTime['minute'].":00";
+                    $event['duration'] = ($calEndMin - $calStartMin) * 60;  // measured in seconds
+                }
+                $day['events'][] = $event;
+            }
+            $week[] = $day;
+            // end of week row
+            if (date('w', $dateAsTime) == $DOWlist[6]) {
+                $providerCalendar['calendar'][] = $week;
+            }
+        }
+        $calendarsByProvider[] = $providerCalendar;
+    }
+    $tpl->assign("calendarsByProvider", $calendarsByProvider);
 }
 
 function postcalendar_userapi_day_view_setup_vars($tpl, $eventsByDate)

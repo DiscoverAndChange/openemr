@@ -217,7 +217,7 @@ class PostCalendarTwigExtensions  extends AbstractExtension
     }
 
     public function renderProviderTimeSlots($times, $events, $interval, $provider, $providerid, $calEndMin, $calStartMin
-        , $timeformat, $openhour, $closehour, $timeslotHeightVal, $timeslotHeightUnit, $date)
+        , $timeformat, $openhour, $closehour, $timeslotHeightVal, $timeslotHeightUnit, $date, $viewtype)
     {
         $eventdate = substr($date, 0, 4) . substr($date, 5, 2) . substr($date, 8, 2);
 
@@ -227,10 +227,12 @@ class PostCalendarTwigExtensions  extends AbstractExtension
         foreach ($events as $event) {
             // skip events for other providers
             // yeah, we've got that sort of overhead here... it ain't perfect
-            if ($providerid != $event['aid'] && $event['aid']!=0) { continue; }
+            // $event['aid']!=0 :With the holidays we included clinic events, they have provider id =0
+            // we dont want to exclude those events from being displayed
+            if (!empty($event['aid']) && ($providerid != $event['aid'])) { continue; }
 
             // skip events without an ID (why they are in the loop, I have no idea)
-            if ($event['eid'] == "") { continue; }
+            if (empty($event['eid'])) { continue; }
 
             // specially handle all-day events
             if ($event['alldayevent'] == 1) {
@@ -238,7 +240,7 @@ class PostCalendarTwigExtensions  extends AbstractExtension
                 if (strlen($tmpTime['hour']) < 2) { $tmpTime['hour'] = "0".$tmpTime['hour']; }
                 if (strlen($tmpTime['minute']) < 2) { $tmpTime['minute'] = "0".$tmpTime['minute']; }
                 $event['startTime'] = $tmpTime['hour'].":".$tmpTime['minute'].":00";
-                $event['duration'] = ($calEndMin - $calStartMin) * 60;  // measured in seconds
+                $event['duration'] = ($calEndMin - $calStartMin) * 60; // measured in seconds
             }
 
             // figure the start time and minutes (from midnight)
@@ -250,7 +252,7 @@ class PostCalendarTwigExtensions  extends AbstractExtension
 
             //fix bug 456 and 455
             //check to see if the event is in the clinic hours range, if not it will not be displayed
-            if  ( (int)$starth < (int)$openhour || (int)$starth > (int)$closehour ){ continue; }
+            if  ( (int)$starth < (int)$openhour || (int)$starth > (int)$closehour ) { continue; }
 
             // determine the class for the event DIV based on the event category
             $evtClass = "event_appointment";
@@ -276,8 +278,11 @@ class PostCalendarTwigExtensions  extends AbstractExtension
                 case 11: // RESERVED
                     $evtClass = "event_reserved";
                     break;
+                case 99: // HOLIDAY
+                    $evtClass = "event_holiday";
+                    break;
                 default: // some appointment
-                    $evtClass = 'event_appointment';
+                    $evtClass = "event_appointment";
                     break;
             }
             // eventViewClass allows the event class to override the template (such as from a dispatched system event).
@@ -294,9 +299,9 @@ class PostCalendarTwigExtensions  extends AbstractExtension
                 $outMins = 0;
                 foreach ($events as $outevent) {
                     // skip events for other providers
-                    if ($providerid != $outevent['aid']) { continue; }
+                    if (!empty($outevent['aid']) && ($providerid != $outevent['aid'])) { continue; }
                     // skip events with blank IDs
-                    if ($outevent['eid'] == "") { continue; }
+                    if (empty($outevent['eid'])) { continue; }
 
                     if ($outevent['eid'] == $event['eid']) { $found = true; continue; }
                     if (($found == true) && ($outevent['catid'] == 3)) {
@@ -324,7 +329,6 @@ class PostCalendarTwigExtensions  extends AbstractExtension
             // times the interval height
             $eStartPos = $eStartInterval * $timeslotHeightVal;
             $evtTop = $eStartPos.$timeslotHeightUnit;
-
             // calculate the HEIGHT value for the event DIV
             // diff between end and start of event
             $eEndMin = $eStartMin + ($event['duration']/60);
@@ -336,6 +340,7 @@ class PostCalendarTwigExtensions  extends AbstractExtension
             $eEndInterval = $eMinDiff / $interval;
             // times the interval height
             $eHeight = $eEndInterval * $timeslotHeightVal;
+            // this cat id was only on the daily view... do we want it to be a weekly or monthly?
             if($event['catid']==3)
             {
                 // An "OUT" that is "zero duration" still needs height so we can click it.
@@ -352,7 +357,7 @@ class PostCalendarTwigExtensions  extends AbstractExtension
                 $divLeft = "left: ".$eventPositions[$event['eid']]->leftpos."%";
             }
 
-            $eventid = $event['eid'];
+            $eventid = $event['eid'] ?? null;
             $eventtype = sqlQuery("SELECT pc_cattype FROM openemr_postcalendar_categories as oc LEFT OUTER JOIN openemr_postcalendar_events as oe ON oe.pc_catid=oc.pc_catid WHERE oe.pc_eid=?", [$eventid]);
             $pccattype = '';
             if($eventtype['pc_cattype']==1)
@@ -363,13 +368,15 @@ class PostCalendarTwigExtensions  extends AbstractExtension
             $fname = substr(($event['patient_name'] ?? ''), $commapos + 2);
             $patient_dob = oeFormatShortDate($event['patient_dob']);
             $patient_age = $event['patient_age'];
-            $catid = $event['catid'];
+            $catid = $event['catid'] ?? '';
             $comment = $event['hometext'];
             $catname = $event['catname'];
             $title = "Age $patient_age ($patient_dob)";
 
             //Variables for therapy groups
             $groupid = $event['gid'];
+            // this comes from weekly view, was not present on daily view.
+            if($groupid) $patientid = '';
             $groupname = $event['group_name'];
             $grouptype = $event['group_type'];
             $groupstatus = $event['group_status'];
@@ -381,11 +388,16 @@ class PostCalendarTwigExtensions  extends AbstractExtension
 
             if ($comment && $GLOBALS['calendar_appt_style'] < 4) $title .= " " . $comment;
 
+            // note we've merged the day and week divTitle's here but we should look at merging these
             // the divTitle is what appears when the user hovers the mouse over the DIV
-            if($groupid)
-                $divTitle = xl('Counselors') . ": \n" . $groupcounselors . " \n";
-            else
-                $divTitle = $provider["fname"] . " " . $provider["lname"];
+            if ($viewtype == 'week') {
+                $divTitle = date("D, d M Y", strtotime($date));
+            } else {
+                if ($groupid)
+                    $divTitle = xl('Counselors') . ": \n" . $groupcounselors . " \n";
+                else
+                    $divTitle = $provider["fname"] . " " . $provider["lname"];
+            }
             $result = sqlStatement("SELECT name,id,color FROM facility WHERE id=(SELECT pc_facility FROM openemr_postcalendar_events WHERE pc_eid=?)", [$eventid]);
             $row = sqlFetchArray($result);
             $color=$event["catcolor"];
@@ -410,16 +422,21 @@ class PostCalendarTwigExtensions  extends AbstractExtension
                 if ($comment) $content .= " " . text($comment);
             }
             else {
+                // TODO: all these changes have issues with the divtitle
                 // some sort of patient appointment
-                if($groupid)
+                if($groupid){
+                    $divTitle .= "\n" . xl('Counselors') . ": \n" . $groupcounselors . " \n";
                     $divTitle .= "\r\n[" . $catname . ' ' . $comment . "]" . $groupname;
+                }
                 else
-                    $divTitle .= "\r\n[" . $catname . ' ' . $comment . "]" . $fname . " " . $lname;
-                $content .= "<span class='appointment'>";
-                $content .= $this->create_event_time_anchor($dispstarth.":".$startm);
-                if ($event['recurrtype'] > 0) $content .= "<img src='{$this->_tpl_vars['TPL_IMAGE_PATH']}/repeating8.png' border='0' style='margin:0px 2px 0px 2px;' title='" . xla("Repeating event") . "' alt='" . xla("Repeating event") . "'>";
-                $content .= '&nbsp;' . text($event['apptstatus']);
+                    $divTitle .= "\r\n[" . $catname . ' ' . $comment . "]" .$fname . " " . $lname;
+
+                $content .= "<span class='appointment" . attr($apptToggle ?? "") . "'>";
+                $content .= $this->create_event_time_anchor($dispstarth . ':' . $startm);
+                if ($event['recurrtype'] > 0) $content .= "<img src='{$this->_tpl_vars['TPL_IMAGE_PATH']}/repeating8.png' class='border-0' style='margin:0 2px 0 2px;' title='Repeating event' alt='Repeating event' />";
+                $content .= text($event['apptstatus']);
                 if ($patientid) {
+                    // include patient name and link to their details
                     $link_title = $fname . " " . $lname . " \n";
                     $link_title .= xl('Age') . ": " . $patient_age . "\n" . xl('DOB') . ": " . $patient_dob . " $comment" . "\n";
                     $link_title .= "(" . xl('Click to view') . ")";
@@ -438,6 +455,7 @@ class PostCalendarTwigExtensions  extends AbstractExtension
                     }
                     if ($catid == 1) $content .= "</s>";
                     $content .= "</a>";
+                    $content .= '<a class="show-appointment shown"></a>';
                 }
                 elseif($groupid){
                     $divTitle .= "\n" . getTypeName($grouptype) . "\n";
@@ -464,8 +482,8 @@ class PostCalendarTwigExtensions  extends AbstractExtension
                 }
                 else {
                     //Category Clinic closaed or holiday take the event title
-                    if ( $catid ==6  || $catid == 7){
-                        $content = xlt($event['title']);
+                    if ( $catid == 6 || $catid == 7){
+                        $content .= xlt($event['title']);
                     }else{
                         // no patient id, just output the category name
                         $content .= text(xl_appt_category($catname));
@@ -495,9 +513,10 @@ class PostCalendarTwigExtensions  extends AbstractExtension
                 }
 
                 // output the DIV and content
-                // For "OUT" events, applying the background color in CSS.
-
-                if ($event['catid'] != "6") {
+                //This is to differentiate between the events of holiday(6) or vacation(4) in order to disable
+                //the ability to double click and edit this events
+                if ($event['catid']!="6" && $event['catid']!="4" )
+                {
                     $background_string = "; background-color:" . attr($color);
                     echo "<div data-eid='" . attr($eventid) . "' class='" . attr($evtClass) . " event' style='top:".$evtTop."; height:".$evtHeight.
                         $background_string.

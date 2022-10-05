@@ -49,6 +49,9 @@ class pcSmarty extends Smarty_Legacy
      */
     private $twigContainer;
 
+    public function getVar($varName) {
+        return $this->twigVars[$varName] ?? null;
+    }
     public function assign($tpl_var, $value = null)
     {
         $this->twigVars[$tpl_var] = $value;
