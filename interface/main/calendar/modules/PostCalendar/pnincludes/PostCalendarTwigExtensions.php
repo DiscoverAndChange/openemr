@@ -216,6 +216,171 @@ class PostCalendarTwigExtensions  extends AbstractExtension
         return $eventPositions;
     }
 
+    public function createEventDataStructureForOutput($events, $providerid, $times, $calEndMin, $calStartMin
+        , $timeformat, $openhour, $closehour) {
+
+        $formattedOutput = [];
+
+        foreach ($events as $event) {
+            $starth = substr($event['startTime'], 0, 2);
+            $startm = substr($event['startTime'], 3, 2);
+            $eStartMin = $starth * 60 + $startm;
+            $dispstarth = ($starth > 12) ? ($starth - $timeformat) : $starth; // used to display the hour
+
+            $formattedEvent = [
+                'eid' => $event['eid']
+                ,'aid' => $event['aid']
+                ,'duration' => $event['duration']
+                ,'startTime' => $event['startTime']
+                ,'starth' => (int)$starth
+                ,'startm' => (int)$startm
+                ,'evtClass' => $this->getEventClass($event)
+                ,'calEndMin' => (int)$calEndMin
+                ,'selectedProvider' => $providerid ?? nullEventId
+                ,'id' => $this->getDisplayId($event)
+            ];
+
+            if ($this->shouldSkipEvent($formattedEvent, $providerid, $openhour, $closehour)) {
+                continue;
+            }
+            if ($this->isAllDayEvent($event)) {
+               $this->adjustTimesForAllDayEvent($formattedEvent, $times, $calEndMin, $calStartMin);
+            }
+
+            // if this is an IN or OUT event then we have some extra special
+            // processing to be done
+            // the IN event creates a DIV until the OUT event
+            // or, without an OUT DIV matching the IN event
+            // then the IN event runs until the end of the day
+            if ($this->isClinicInEvent($event)) {
+                $this->adjustClinicInEventDurationUntilOutEvent($formattedEvent, $events);
+            }
+        }
+    }
+
+    private function getDisplayId($event, $date) {
+        $eventdate = substr($date, 0, 4) . substr($date, 5, 2) . substr($date, 8, 2);
+
+        $eventid = $event['eid'] ?? null;
+        $eventtype = sqlQuery("SELECT pc_cattype FROM openemr_postcalendar_categories as oc LEFT OUTER JOIN openemr_postcalendar_events as oe ON oe.pc_catid=oc.pc_catid WHERE oe.pc_eid=?", [$eventid]);
+        $pccattype = '';
+        if($eventtype['pc_cattype']==1) {
+            $pccattype = 'true';
+        }
+        return $eventdate . "-" . $eventid . "-"  . $pccattype;
+    }
+
+    private function isClinicInEvent($event) {
+        return $event['catid'] == 2;
+    }
+
+    private function adjustClinicInEventDurationUntilOutEvent(&$formattedEvent, $events) {
+        // locate a matching OUT for this specific IN
+        $found = false;
+        $outMins = 0;
+        $eStartMin = $formattedEvent['eStartMin'];
+        $calEndMin = $formattedEvent['calEndMin'];
+        $providerid = $formattedEvent['selectedProvider'];
+        foreach ($events as $outevent) {
+            // skip events for other providers
+            if (!empty($outevent['aid']) && ($providerid != $outevent['aid'])) { continue; }
+            // skip events with blank IDs
+            if (empty($outevent['eid'])) { continue; }
+
+            if ($outevent['eid'] == $formattedEvent['eid']) { $found = true; continue; }
+            if (($found == true) && ($outevent['catid'] == 3)) {
+                // calculate the duration from this event to the outevent
+                $outH = substr($outevent['startTime'], 0, 2);
+                $outM = substr($outevent['startTime'], 3, 2);
+                $outMins = ($outH * 60) + $outM;
+                $formattedEvent['duration'] = ($outMins - $eStartMin) * 60; // duration is in seconds
+                $found = 2; // TODO: this looks like its never used, look at removing this.
+                break;
+            }
+        }
+        if ($outMins == 0) {
+            // no OUT was found so this event's duration goes
+            // until the end of the day
+            $formattedEvent['duration'] = ($calEndMin - $eStartMin) * 60; // duration is in seconds
+        }
+    }
+
+    private function getEventClass($event) {
+        // determine the class for the event DIV based on the event category
+        $evtClass = "event_appointment";
+        switch ($event['catid']) {
+            case 1:  // NO-SHOW appt
+                $evtClass = "event_noshow";
+                break;
+            case 2:  // IN office
+                $evtClass = "event_in";
+                break;
+            case 3:  // OUT of office
+                $evtClass = "event_out";
+                break;
+            case 4:  // VACATION
+                $evtClass = "event_reserved";
+                break;
+            case 6:  // HOLIDAY
+                $evtClass = "event_holiday";
+                break;
+            case 8:  // LUNCH
+                $evtClass = "event_reserved";
+                break;
+            case 11: // RESERVED
+                $evtClass = "event_reserved";
+                break;
+            case 99: // HOLIDAY
+                $evtClass = "event_holiday";
+                break;
+            default: // some appointment
+                $evtClass = "event_appointment";
+                break;
+        }
+        // eventViewClass allows the event class to override the template (such as from a dispatched system event).
+        $evtClass = $event['eventViewClass'] ?? $evtClass;
+        return $evtClass;
+    }
+
+    private function adjustTimesForAllDayEvent(&$formattedEvent, $times, $calEndMin, $calStartMin) {
+        $tmpTime = $times[0];
+        if (strlen($tmpTime['hour']) < 2) { $tmpTime['hour'] = "0".$tmpTime['hour']; }
+        if (strlen($tmpTime['minute']) < 2) { $tmpTime['minute'] = "0".$tmpTime['minute']; }
+        $formattedOutput['startTime'] = $tmpTime['hour'].":".$tmpTime['minute'].":00";
+        $formattedOutput['duration'] = ($calEndMin - $calStartMin) * 60; // measured in seconds
+    }
+
+    private function isAllDayEvent($event) {
+        return $event['alldayevent'] == 1;
+    }
+
+    private function shouldSkipEventForProvider($event, $providerid) {
+        // skip events for other providers
+        // yeah, we've got that sort of overhead here... it ain't perfect
+        // $event['aid']!=0 :With the holidays we included clinic events, they have provider id =0
+        // we dont want to exclude those events from being displayed
+        return !empty($event['aid']) && ($providerid != $event['aid']);
+    }
+
+    private function shouldSkipEvent($event, $providerid, $openhour, $closehour) {
+        if (empty($event['eid'])) {
+            return false;
+        }
+
+        if ($this->isEventOutsideClinicHours($event, $openhour, $closehour))
+        {
+            return false;
+        }
+
+        return $this->shouldSkipEventForProvider($event, $providerid);
+    }
+
+    private function isEventOutsideClinicHours($event, $openhour, $closehour) {
+        //fix bug 456 and 455
+        //check to see if the event is in the clinic hours range, if not it will not be displayed
+        return ( (int)$event['starth'] < (int)$openhour || (int)$event['starth'] > (int)$closehour );
+    }
+
     public function renderProviderTimeSlots($times, $events, $interval, $provider, $providerid, $calEndMin, $calStartMin
         , $timeformat, $openhour, $closehour, $timeslotHeightVal, $timeslotHeightUnit, $date, $viewtype)
     {
