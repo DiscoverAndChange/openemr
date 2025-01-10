@@ -15,6 +15,8 @@ The original location of this file is /home/duhlman/uml-generated-code/prescript
  */
 
 use OpenEMR\Common\ORDataObject\ORDataObject;
+use OpenEMR\Services\Utils\DateFormatterUtils;
+use OpenEMR\Services\PatientService;
 
 class Patient extends ORDataObject
 {
@@ -46,7 +48,7 @@ class Patient extends ORDataObject
     {
         if (!empty($this->id)) {
             $res = sqlQuery("SELECT providerID , fname , lname , mname, " .
-                "DATE_FORMAT(DOB,'%m/%d/%Y') as date_of_birth, " .
+                "DATE_FORMAT(DOB,'%Y-%m-%d') as date_of_birth, " .
                 "pubpid " .
                 "FROM " . escape_table_name($this->_table) . " " .
                 "WHERE pid = ?", [$this->id]);
@@ -86,6 +88,16 @@ class Patient extends ORDataObject
     }
     function get_dob()
     {
-        return $this->date_of_birth;
+        return DateFormatterUtils::oeFormatShortDate($this->date_of_birth);
+    }
+
+    function get_age_for_display() {
+        $patientService = new PatientService();
+        $age = $patientService->getPatientAgeYMD($this->date_of_birth);
+        $ageLine = (int) $age['age'] . ' ' . xl('years');
+        if ($age['age_in_months'] <= 144) {
+            $ageLine .= ' ' . ($age['age_in_months'] % 12) . ' ' . xl('months');
+        }
+        return $ageLine;
     }
 } // end of Patient

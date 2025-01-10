@@ -348,7 +348,7 @@ class C_Prescription extends Controller
         return $this->multiprint_header($pdf, $p);
     }
 
-    function multiprint_header(&$pdf, $p)
+    function multiprint_header(&$pdf, Prescription $p)
     {
         $this->providerid = $p->provider->id;
         //print header
@@ -406,8 +406,11 @@ class C_Prescription extends Controller
         $my_y = $pdf->y;
         $pdf->ezNewPage();
         $pdf->line($pdf->ez['leftMargin'], $pdf->y, $pdf->ez['pageWidth'] - $pdf->ez['rightMargin'], $pdf->y);
-        $pdf->ezText('<b>' . xl('Date of Birth') . '</b>', 6);
-        $pdf->ezText($p->patient->date_of_birth, 10);
+        $pdf->ezText('<b>' . xl('Date of Birth') . "</b>", 6);
+        $pdf->ezText($p->patient->get_dob(), 10);
+        $pdf->ezText('<b>' . xl('Age') . "</b>", 6);
+        $pdf->ezText($p->patient->get_age_for_display(), 10);
+
         $pdf->ezText('');
         $pdf->line($pdf->ez['leftMargin'], $pdf->y, $pdf->ez['pageWidth'] - $pdf->ez['rightMargin'], $pdf->y);
         $pdf->ezText('<b>' . xl('Medical Record #') . '</b>', 6);
@@ -423,7 +426,7 @@ class C_Prescription extends Controller
         $pdf->ezText('', 10);
     }
 
-    function multiprintcss_header($p)
+    function multiprintcss_header(Prescription $p)
     {
         echo("<div class='paddingdiv'>\n");
         $this->providerid = $p->provider->id;
@@ -489,7 +492,9 @@ class C_Prescription extends Controller
         echo ("</td>\n");
         echo ("<td class='bordered'>\n");
         echo ('<b><span class="small">' . xl('Date of Birth') . '</span></b>' . '<br />');
-        echo ($p->patient->date_of_birth );
+        echo $p->patient->get_dob() . "<br />";
+        echo ('<b><span class="small">' . xl('Age') . '</span></b>' . '<br />');
+        echo $p->patient->get_age_for_display() . "<br />";
         echo ("</td>\n");
         echo ("</tr>\n");
         echo ("<tr>\n");
@@ -725,7 +730,7 @@ class C_Prescription extends Controller
         return;
     }
 
-    function multiprintplain_header($p)
+    function multiprintplain_header(Prescription $p)
     {
         $this->providerid = $p->provider->id;
         $sql = "SELECT f.name, f.street, f.state, f.postal_code, f.phone, if(f.fax != '', f.fax, '') FROM users JOIN facility AS f ON f.name = users.facility where users.id = ?";
@@ -807,8 +812,13 @@ class C_Prescription extends Controller
 
         echo ($address);
         echo "\n";
-        echo (xl('Date of Birth')) . " ";
-        echo ($p->patient->date_of_birth );
+        echo (xl('Date of Birth'));
+        echo "\n";
+        echo $p->patient->get_dob();
+        echo "\n";
+        echo (xl('Age'));
+        echo "\n";
+        echo $p->patient->get_age_for_display();
         echo "\n";
         echo xl('Medical Record #');
         echo (str_pad($p->patient->get_pubpid(), 10, "0", STR_PAD_LEFT));

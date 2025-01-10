@@ -229,6 +229,7 @@ if (!empty($_POST['form_refresh'])) {
         }
 
         if ($form_drug_name) {
+            // TODO: @adunsulag open an issue to make this an actual LIKE clause so that it can be used with wildcards
             $where .= " AND (d.name LIKE ? OR r.drug LIKE ?)";
             array_push($sqlBindArray, $form_drug_name, $form_drug_name);
         }
