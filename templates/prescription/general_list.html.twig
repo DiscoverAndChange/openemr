@@ -20,11 +20,12 @@
 <script>
 
     {# TODO: @adunsulag should we just refactor all of these scripts, seems like quite the hodge podge of stuff here #}
-    let prescriptionButtons = ['multiprint', 'multiprintcss', 'multiprintToFax'];
+    let prescriptionButtons = ['multiprint', 'multiprintcss', 'multiprintToFax', 'reorder'];
     let prescriptionButtonChecks = {
-        'multiprint': [CheckForChecksConstraint]
-        ,'multiprintcss': [CheckForChecksConstraint]
-        ,'multiprintToFax': [CheckForChecksConstraint, checkFaxSignatureConfiguredConstraint]
+        multiprint: [CheckForChecksConstraint]
+        ,multiprintcss: [CheckForChecksConstraint]
+        ,multiprintToFax: [CheckForChecksConstraint, checkFaxSignatureConfiguredConstraint]
+        ,reorder: [CheckForChecksConstraint, checkForSinglePrescriptionRenewal]
     };
     {% if rx_send_email %}
         prescriptionButtons.push('multiprintSendEmail');
@@ -34,6 +35,16 @@
             return false;
         }];
     {% endif %}
+
+    function checkForSinglePrescriptionRenewal(evt, btn) {
+        let checkedBoxes = document.querySelectorAll(".check_list:checked");
+        if (checkedBoxes.length > 1) {
+            alert(window.top.xl("Please select only one prescription to renew"));
+            evt.preventDefault();
+            return false;
+        }
+        return true;
+    }
 
     function checkFaxSignatureConfiguredConstraint(evt, faxButton) {
         if (faxButton.dataset['signatureMissing']) {
@@ -205,6 +216,7 @@ $(function () {
           changeLinkHref(selector,checkedBox.checked, checkedBox.value);
       });
   });
+
 });
 
 </script>
@@ -418,6 +430,8 @@ $(function () {
                 <hr />
             </div>
             <div class="col-12 d-flex justify-content-end">
+                <!-- Add this button in the button group after the other action buttons -->
+                <a id="reorder" href="{{CONTROLLER}}prescription&reorder&id={% if printm is not empty%}{{printm|attr_url}}{% endif %}" onclick="top.restoreSession()" class="btn btn-primary btn-sm">{{'Reorder'|xlt}}</a>
                 <a href="{{ CONTROLLER }}?prescription&edit&id=0&pid={{  pid|attr_url }}" class="btn-primary btn-sm  mr-3" id="addButton">{{ "Add"|xlt }}</a>
                 <a href="#" class="btn-secondary btn-sm quitButton">{{ "Quit"|xlt }}</a>
             </div>

@@ -122,7 +122,7 @@ class C_Prescription extends Controller
     function edit_action($id = "", $patient_id = "", $p_obj = null)
     {
 
-        if ($p_obj != null && get_class($p_obj) == "prescription") {
+        if ($p_obj != null && get_class($p_obj) == Prescription::class) {
             $this->prescriptions[0] = $p_obj;
         } elseif (empty($this->prescriptions[0]) || !is_object($this->prescriptions[0]) || (get_class($this->prescriptions[0]) != "prescription")) {
             $this->prescriptions[0] = new Prescription($id);
@@ -141,6 +141,57 @@ class C_Prescription extends Controller
         }
 
         $this->default_action();
+    }
+
+
+    public function reorder_action()
+    {
+        if (empty($_GET['id'])) {
+            $this->function_argument_error();
+            exit;
+        }
+
+        $ids = preg_split('/::/', substr($_GET['id'], 1, strlen($_GET['id']) - 2), -1, PREG_SPLIT_NO_EMPTY);
+
+        // Check if more than one prescription is selected
+        if (count($ids) > 1) {
+            $this->assign("process_result", xl("Please select only one prescription to reorder."));
+            return $this->list_action($_GET['pid']);
+        }
+
+        // Get the original prescription
+        $originalPrescription = new Prescription($ids[0]);
+
+        // Create a new prescription object and copy relevant fields
+        $newPrescription = new Prescription();
+        $newPrescription->set_patient_id($originalPrescription->get_patient_id());
+        $newPrescription->set_drug($originalPrescription->get_drug());
+        $newPrescription->set_rxnorm_drugcode($originalPrescription->get_rxnorm_drugcode());
+        $newPrescription->set_dosage($originalPrescription->get_dosage());
+        $newPrescription->set_form($originalPrescription->get_form());
+        $newPrescription->set_size($originalPrescription->get_size());
+        $newPrescription->set_unit($originalPrescription->get_unit());
+        $newPrescription->set_route($originalPrescription->get_route());
+        $newPrescription->set_interval($originalPrescription->get_interval());
+        $newPrescription->set_substitute($originalPrescription->get_substitute());
+        $newPrescription->set_refills($originalPrescription->get_refills());
+        $newPrescription->set_per_refill($originalPrescription->get_per_refill());
+        $newPrescription->set_note($originalPrescription->get_note());
+        $newPrescription->set_active("1");
+        $newPrescription->set_provider_id($originalPrescription->get_provider_id());
+        $newPrescription->set_drug_id($originalPrescription->get_drug_id());
+        $newPrescription->set_quantity($originalPrescription->get_quantity());
+
+        // Set today as the start date
+        $newPrescription->set_start_date(date('Y-m-d'));
+
+        // Store the prescription object for use in the edit template
+        $this->prescriptions[0] = $newPrescription;
+
+        // Set the form action for saving
+        $this->assign("FORM_ACTION", $GLOBALS['webroot'] . "/controller.php?prescription&edit&id=0&pid=" . $originalPrescription->get_patient_id());
+
+        return $this->edit_action(0, $originalPrescription->get_patient_id(), $newPrescription);
     }
 
     function list_action($id, $sort = "")

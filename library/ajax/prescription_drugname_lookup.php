@@ -33,7 +33,7 @@ if (isset($_GET['term'])) {
     $return_arr = array();
     $term = filter_input(INPUT_GET, "term");
     if ($is_rxnorm) {
-        $sql = "SELECT `str` as name, `RXCUI` as `rxnorm` FROM `rxnconso` WHERE `SAB` = 'RXNORM' AND `str` LIKE ? GROUP BY `RXCUI` ORDER BY `str` LIMIT 100";
+        $sql = "SELECT `str` as name, `RXCUI` as `rxnorm` FROM `RXNCONSO` WHERE `SAB` = 'RXNORM' AND `str` LIKE ? GROUP BY `RXCUI` ORDER BY `str` LIMIT 100";
     } elseif ($is_rxcui) {
         $sql = "SELECT `code_text` as name, `code` as rxnorm FROM `codes` WHERE `code_text` LIKE ? AND `code_type` = ? GROUP BY `code` ORDER BY `code_text` LIMIT 100";
     } else {
