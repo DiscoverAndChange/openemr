@@ -22,7 +22,7 @@ require_once("../globals.php");
 //
 $patdata = sqlQuery("SELECT " .
   "p.fname, p.mname, p.lname, p.pubpid, p.DOB, " .
-  "p.street, p.city, p.state, p.postal_code, p.pid " .
+  "p.street, p.city, p.state, p.postal_code, p.pubpid " .
   "FROM patient_data AS p " .
   "WHERE p.pid = ? LIMIT 1", array($pid));
 
@@ -53,7 +53,7 @@ if ($GLOBALS['chart_label_type'] == '3') {
 $pdf->AddPage();
 
 // Added spaces to the sprintf for Fire Fox it was having a problem with alignment
-$text = sprintf("  %s %s\n  %s\n  %s\n  %s", $patdata['fname'], $patdata['lname'], $dob, $today, $patdata['pid']);
+$text = sprintf("  %s %s\n  %s\n  %s\n  %s", $patdata['fname'], $patdata['lname'], $dob, $today, $patdata['pubpid']);
 
 // For loop for printing the labels
 //

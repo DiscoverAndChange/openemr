@@ -40,7 +40,8 @@ function getImmunizationList($pid, $sortby, $showError)
                 " left join users u on i1.administered_by_id = u.id " .
                 " left join code_types ct on ct.ct_key = 'CVX' " .
                 " left join codes c on c.code_type = ct.ct_id AND i1.cvx_code = c.code " .
-                " where i1.patient_id = ? ";
+            // short term fix, not sure why code text is showing null here
+                " where i1.patient_id = ?  AND code_text_short IS NOT NULL ";
     if (!$showError) {
         $sql .= "and i1.added_erroneously = 0 ";
     }

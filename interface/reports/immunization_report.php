@@ -122,7 +122,7 @@ $query .=
     "from immunizations i, patient_data p, codes c " .
     "left join code_types ct on c.code_type = ct.ct_id " .
     "where " .
-    "ct.ct_key='CVX' and ";
+    "ct.ct_key='CVX'  AND c.code_text_short IS NOT NULL and ";
 
 if (!empty($form_from_date)) {
     $query .= "i.vis_date >= ? and ";
@@ -513,7 +513,7 @@ if (!empty($_POST['form_get_hl7']) && ($_POST['form_get_hl7'] === 'true')) {
         <?php } ?>
     </form>
     <script>
-        
+
         function exportData() {
             let data = <?php echo json_encode($rows ?? ''); ?>;
             let csrf_token = <?php echo js_escape(CsrfUtils::collectCsrfToken()); ?>;
