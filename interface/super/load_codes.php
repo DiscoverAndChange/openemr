@@ -21,6 +21,7 @@ use OpenEMR\Common\Acl\AclMain;
 use OpenEMR\Common\Csrf\CsrfUtils;
 use OpenEMR\Common\Twig\TwigContainer;
 use OpenEMR\Core\Header;
+use OpenEMR\Events\Codes\CodeImportEvent;
 
 if (!AclMain::aclCheckCore('admin', 'super')) {
     echo (new TwigContainer(null, $GLOBALS['kernel']))->getTwig()->render('core/unauthorized.html.twig', ['pageTitle' => xl("Install Code Set")]);
@@ -56,53 +57,74 @@ $code_type = empty($_POST['form_code_type']) ? '' : $_POST['form_code_type'];
 <body class="body_top">
 
 <?php
+$supportedCodeTypes = array('RXCUI');
 // Handle uploads.
-if (!empty($_POST['bn_upload'])) {
-    //verify csrf
-    if (!CsrfUtils::verifyCsrfToken($_POST["csrf_token_form"])) {
-        CsrfUtils::csrfNotVerified();
-    }
-
+/**
+ * @param mixed $code_type
+ * @param bool $form_replace
+ * @return resource|void
+ */
+function processImport(mixed $code_type, bool $form_replace)
+{
+    global $eres; /* file handle*/
+    global $code_types;
     if (empty($code_types[$code_type])) {
-        die(xlt('Code type not yet defined') . ": '" . text($code_type) . "'");
+        echo "<p class='text-danger'>" . xlt('Code type not yet defined') . ": '" . text($code_type) . "'"
+            . "</p>\n";
+        return;
     }
 
     $code_type_id = $code_types[$code_type]['id'];
     $tmp_name = $_FILES['form_file']['tmp_name'];
-
     $inscount = 0;
     $repcount = 0;
     $seen_codes = array();
 
+    /* whether or not it's a zip file   */
+    $zip = $_FILES['form_file']['type'] == 'application/zip' ? true : false;
+    $csv = $_FILES['form_file']['type'] == 'text/csv' ? true : false;
+    $eres = null;
+
     if (is_uploaded_file($tmp_name) && $_FILES['form_file']['size']) {
-        $zipin = new ZipArchive();
-        $eres = null;
-        if ($zipin->open($tmp_name) === true) {
-            // Must be a zip archive.
-            for ($i = 0; $i < $zipin->numFiles; ++$i) {
-                $ename = $zipin->getNameIndex($i);
-                // TBD: Expand the following test as other code types are supported.
-                if ($code_type == 'RXCUI' && basename($ename) == 'RXNCONSO.RRF') {
-                    $eres = $zipin->getStream($ename);
-                    break;
+        if ($zip) {
+            $zipin = new ZipArchive();
+
+            if ($zipin->open($tmp_name) === true) {
+                // Must be a zip archive.
+                for ($i = 0; $i < $zipin->numFiles; ++$i) {
+                    $ename = $zipin->getNameIndex($i);
+                    // TBD: Expand the following test as other code types are supported.
+                    if ($code_type == 'RXCUI' && basename($ename) == 'RXNCONSO.RRF') {
+                        $eres = $zipin->getStream($ename);
+                        $zip = true;
+                        break;
+                    }
                 }
             }
-        } else {
+        } /* not zip */
+        else if ($csv) {
             $eres = fopen($tmp_name, 'r');
+
+            if (!$eres) {
+                echo "<p class='text-danger'>" . xlt('Unable to open file ' . $_FILES['form_file']['name'] . " from: " . $tmp_name)
+                    . "</p>\n";
+                return;
+            }
         }
 
         if (empty($eres)) {
-            die(xlt('Unable to locate the data in this file.'));
+            echo "<p class='text-danger'>" . xlt('Unable to locate the data in this file.') . "</p>\n";
+            return;
         }
 
         if ($form_replace) {
             sqlStatement("DELETE FROM codes WHERE code_type = ?", array($code_type_id));
         }
 
-
         // Settings to drastically speed up import with InnoDB
         sqlStatementNoLog("SET autocommit=0");
         sqlStatementNoLog("START TRANSACTION");
+
         while (($line = fgets($eres)) !== false) {
             if ($code_type == 'RXCUI') {
                 $a = explode('|', $line);
@@ -117,43 +139,90 @@ if (!empty($_POST['bn_upload'])) {
                 if ($a[11] != 'RXNORM') {
                     continue;
                 }
-
-                $code = $a[0];
-                if (isset($seen_codes[$code])) {
+            } else if ($code_type == 'ICD10-HC-CHO7') {
+                /* csv file - <code>:<description> */
+                $a = explode('%', $line);
+                if (count($a) >= 3) {
+                    echo "<p class='text-danger'>" . xlt('bad record format ' . $line) . "</p>\n";
                     continue;
                 }
-
-                $seen_codes[$code] = 1;
-                if (!$form_replace) {
-                    $tmp = sqlQuery("SELECT id FROM codes WHERE code_type = ? AND code = ? LIMIT 1", array($code_type_id, $code));
-                    if (!empty($tmp)) {
-                        sqlStatementNoLog("UPDATE codes SET code_text = ? WHERE code_type = ? AND code = ?", array($a[14], $code_type_id, $code));
-                        ++$repcount;
-                        continue;
-                    }
-                }
-
-                sqlStatementNoLog("INSERT INTO codes SET code_type = ?, code = ?, code_text = ?, fee = 0, units = 0", array($code_type_id, $code, $a[14]));
-                ++$inscount;
             }
 
+            $code = $a[0];
+            if (isset($seen_codes[$code])) {
+                continue;
+            }
+
+            $seen_codes[$code] = 1;
+            ++$inscount;
+            if (!$form_replace) {
+                $tmp = sqlQuery(
+                    "SELECT id FROM codes WHERE code_type = ? AND code = ? LIMIT 1",
+                    array($code_type_id, $code)
+                );
+                if ($tmp['id']) {
+                    sqlStatementNoLog(
+                        "UPDATE codes SET code_text = ? WHERE code_type = ? AND code = ?",
+                        array($a[14], $code_type_id, $code)
+                    );
+                    ++$repcount;
+                    continue;
+                }
+            } /* end if not to be replaced */
+            if ($code_type == 'RXCUI') {
+                sqlStatementNoLog(
+                    "INSERT INTO codes SET code_type = ?, code = ?, code_text = ?, " .
+                    "fee = 0, units = 0",
+                    array($code_type_id, $code, $a[14])
+                );
+            } // other code types could be added here but best to let the modules handle it.
+            ++$inscount;
+
             // TBD: Clone/adapt the above for each new code type.
-        }
+        } /* while lines to read */
 
         // Settings to drastically speed up import with InnoDB
         sqlStatementNoLog("COMMIT");
         sqlStatementNoLog("SET autocommit=1");
 
         fclose($eres);
-        // Cannot close ZIP object if not initialised, catch and do nothing
-        try {
+        if ($zip) {
             $zipin->close();
-        } catch (ValueError $e) {
         }
+    }
 
-        echo "<p class='text-success'>" . xlt('LOAD SUCCESSFUL. Codes inserted') . ": " . text($inscount) . ", " . xlt('replaced') . ": " . text($repcount) . "</p>\n";
+
+    echo "<p class='text-success'>" .
+        xlt('LOAD SUCCESSFUL. Codes inserted') . ", Table: " . "codes" . ", record count:" . text($inscount) . ", " .
+        xlt('replaced') . ": " . text($repcount) .
+        "</p>\n";
+    return $eres;
+}
+
+if (!empty($_POST['bn_upload'])) {
+    //verify csrf
+    if (!CsrfUtils::verifyCsrfToken($_POST["csrf_token_form"])) {
+        CsrfUtils::csrfNotVerified();
+    }
+
+    // Add this new event dispatch
+    $importEvent = new CodeImportEvent(
+        $_POST['form_code_type'],
+        $_FILES['form_file']['tmp_name'],
+        !empty($_POST['form_replace'])
+    );
+    $GLOBALS['kernel']->getEventDispatcher()->dispatch($importEvent, CodeImportEvent::EVENT_NAME);
+
+    // If event was handled by a listener, display messages and return
+    if ($importEvent->isHandled()) {
+        foreach ($importEvent->getMessages('success') as $message) {
+            echo "<p class='text-success'>" . text($message) . "</p>\n";
+        }
+        foreach ($importEvent->getMessages('error') as $message) {
+            echo "<p class='text-danger'>" . text($message) . "</p>\n";
+        }
     } else {
-        echo "<p class='text-danger'>" . xlt('ERROR. Could not open') . ". " . (php_ini_loaded_file() ?? "Server") . " upload_max_filesize: " . xlt('Your file is too large') . ". " . xlt('Set To') . " ≥ post_max_size.";
+        processImport($code_type, $form_replace);
     }
 }
 
@@ -180,7 +249,7 @@ if (!empty($_POST['bn_upload'])) {
                             <td>
                                 <select name='form_code_type'>
                                     <?php
-                                    foreach (array('RXCUI') as $codetype) {
+                                    foreach ($supportedCodeTypes as $codetype) {
                                         echo "    <option value='" . attr($codetype) . "'>" . text($codetype) . "</option>\n";
                                     }
                                     ?>
