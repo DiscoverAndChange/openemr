@@ -44,6 +44,22 @@ if (!empty($_GET)) {
         cursor: pointer;
       }
     </style>
+    <!-- Add to header styles section -->
+    <style>
+        .log-entry {
+            position: relative;
+        }
+        .log-details, .log-query {
+            font-size: 0.9em;
+        }
+        .log-details table {
+            margin-bottom: 0;
+        }
+        pre code {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+    </style>
     <script>
         //function to disable the event type field if the event name is disclosure
         function eventTypeChange(eventname) {
@@ -375,8 +391,10 @@ if (!empty($_GET)) {
                                                     //  of comments in OpenEMR 6.0.0 and greater when the comments are not encrypted since they hold binary (uuid) elements)
                                                     if ($encryptVersion >= 4) {
                                                         $iter["comments"] = base64_decode($iter["comments"]);
+                                                        if ($encryptVersion == 4) {
+                                                            $trans_comments = preg_replace($patterns, $replace, $iter["comments"]);
+                                                        }
                                                     }
-                                                    $trans_comments = preg_replace($patterns, $replace, $iter["comments"]);
                                                 }
                                                 ?>
                                                 <tr>
@@ -394,10 +412,102 @@ if (!empty($_GET)) {
                                                         <td></td>
                                                     <?php } ?>
                                                     <td><?php
-                                                        // Convert select term to Query for MU2 requirements
-                                                        // Also using mb_convert_encoding to change binary stuff (uuid) to just be '?' characters
-                                                        echo nl2br(text(preg_replace('/^select/i', 'Query', mb_convert_encoding($trans_comments, 'UTF-8', 'UTF-8'))));
-                                                    ?>
+                                                        // Handle structured data display for version 5+
+                                                        if ($encryptVersion >= 5) {
+                                                            $logData = json_decode($iter["comments"], true);
+                                                            if (json_last_error() === JSON_ERROR_NONE) {
+                                                                // Generate summary text based on action type
+                                                                $summaryText = '';
+                                                                $actionIcon = '';
+
+                                                                switch($logData['type']) {
+                                                                    case 'update':
+                                                                        $actionIcon = '<i class="fas fa-edit text-warning mr-1"></i>';
+                                                                        $summaryText = "Updated " . text(ucfirst($logData['table']));
+                                                                        // Add identifier if available
+                                                                        if (!empty($logData['where'])) {
+                                                                            if (preg_match('/(\w+)\s*=\s*[\'"]?(\d+)[\'"]?/', $logData['where'], $matches)) {
+                                                                                $summaryText .= " #" . text($matches[2]);
+                                                                            }
+                                                                        }
+                                                                        break;
+
+                                                                    case 'insert':
+                                                                        $actionIcon = '<i class="fas fa-plus text-success mr-1"></i>';
+                                                                        $summaryText = "Created new " . text(ucfirst($logData['table']));
+                                                                        break;
+
+                                                                    case 'delete':
+                                                                        $actionIcon = '<i class="fas fa-trash text-danger mr-1"></i>';
+                                                                        $summaryText = "Deleted " . text(ucfirst($logData['table']));
+                                                                        break;
+
+                                                                    default:
+                                                                        $actionIcon = '<i class="fas fa-search text-info mr-1"></i>';
+                                                                        $summaryText = "Query " . text(ucfirst($logData['table']));
+                                                                }
+                                                                ?>
+                                                                <div class="log-entry">
+                                                                    <!-- Primary View -->
+                                                                    <div class="d-flex align-items-center">
+                                                                        <?php echo $actionIcon; ?>
+                                                                        <span class="font-weight-bold"><?php echo $summaryText; ?></span>
+                                                                        <?php if ($logData['type'] != 'select'): ?>
+                                                                            <button class="btn btn-sm btn-link ml-2" onclick="toggleDetails(this)">
+                                                                                <i class="fas fa-chevron-down"></i>
+                                                                            </button>
+                                                                        <?php endif; ?>
+                                                                    </div>
+
+                                                                    <?php if ($logData['type'] == 'update' && !empty($logData['before'])): ?>
+                                                                        <!-- First Expansion Level - Changes Table -->
+                                                                        <div class="log-details mt-2" style="display:none;">
+                                                                            <table class="table table-sm table-bordered">
+                                                                                <thead>
+                                                                                <tr>
+                                                                                    <th><?php echo xlt("Field"); ?></th>
+                                                                                    <th><?php echo xlt("Previous Value"); ?></th>
+                                                                                    <th><?php echo xlt("New Value"); ?></th>
+                                                                                </tr>
+                                                                                </thead>
+                                                                                <tbody>
+                                                                                <?php foreach ($logData['after'] as $field => $newValue): ?>
+                                                                                    <?php if ($logData['before'][$field] != $newValue): ?>
+                                                                                        <tr>
+                                                                                            <td><?php echo text($field); ?></td>
+                                                                                            <td><?php echo text($logData['before'][$field] ?? ''); ?></td>
+                                                                                            <td><?php echo text($newValue); ?></td>
+                                                                                        </tr>
+                                                                                    <?php endif; ?>
+                                                                                <?php endforeach; ?>
+                                                                                </tbody>
+                                                                            </table>
+                                                                        </div>
+                                                                    <?php endif; ?>
+
+                                                                    <!-- Second Expansion Level - Raw Query -->
+                                                                    <?php if (!empty($logData['raw_query'])): ?>
+                                                                        <div class="log-query mt-2" style="display:none;">
+                                                                            <div class="bg-light p-2 rounded">
+                                                                                <pre class="mb-0"><code><?php echo text(preg_replace('/^select/i', 'Query', mb_convert_encoding($logData['raw_query'], 'UTF-8', 'UTF-8'))); ?></code></pre>
+                                                                            </div>
+                                                                        </div>
+                                                                    <?php endif; ?>
+                                                                </div>
+                                                                <?php
+                                                            } else {
+                                                                // fallback if JSON converting fails
+                                                                // Convert select term to Query for MU2 requirements
+                                                                // Also using mb_convert_encoding to change binary stuff (uuid) to just be '?' characters
+                                                                echo nl2br(text(preg_replace('/^select/i', 'Query', mb_convert_encoding($trans_comments, 'UTF-8', 'UTF-8'))));
+                                                            }
+                                                        } else {
+                                                            // Legacy display for older versions
+                                                            // Convert select term to Query for MU2 requirements
+                                                            // Also using mb_convert_encoding to change binary stuff (uuid) to just be '?' characters
+                                                            echo nl2br(text(preg_replace('/^select/i', 'Query', mb_convert_encoding($trans_comments, 'UTF-8', 'UTF-8'))));
+                                                        }
+                                                        ?>
                                                     </td>
                                                 </tr>
 
@@ -545,6 +655,34 @@ if (!empty($_GET)) {
                     $('#direction').val('asc');
             }
         </script>
+        <!-- Add to bottom of file for the JavaScript -->
+        <script>
+            function toggleDetails(button) {
+                const entry = button.closest('.log-entry');
+                const details = entry.querySelector('.log-details');
+                const query = entry.querySelector('.log-query');
+                const icon = button.querySelector('i');
 
+                if (details) details.style.display = details.style.display === 'none' ? 'block' : 'none';
+                if (query) query.style.display = query.style.display === 'none' ? 'block' : 'none';
+
+                // Toggle icon
+                icon.classList.toggle('fa-chevron-down');
+                icon.classList.toggle('fa-chevron-up');
+            }
+
+            // Add to existing document ready function or create one
+            $(document).ready(function() {
+                // Initialize tooltips
+                $('[data-toggle="tooltip"]').tooltip();
+
+                // Add hover handlers for record IDs
+                $('.log-entry').on('mouseenter', '[data-record-id]', function() {
+                    const recordId = $(this).data('record-id');
+                    const table = $(this).data('table');
+                    // Could add AJAX call here to fetch current record state
+                });
+            });
+        </script>
 </body>
 </html>

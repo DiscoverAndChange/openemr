@@ -24,6 +24,17 @@ class ADODB_mysqli_log extends ADODB_mysqli
      */
     function Execute($sql, $inputarr = false, $insertNeedReturn = false)
     {
+        $logger = EventAuditLogger::instance();
+
+        // Check if we should log this SQL
+        $shouldLog = $logger->shouldLogSql($sql);
+        $previousValues = null;
+
+        // If logging and it's an UPDATE, capture previous values
+        if ($shouldLog && $logger->isSqlUpdateStatement($sql)) {
+            $previousValues = $logger->getPreviousValues($sql, $inputarr);
+        }
+
         $retval = parent::Execute($sql, $inputarr);
         if ($retval === false) {
             $outcome = false;
@@ -42,7 +53,10 @@ class ADODB_mysqli_log extends ADODB_mysqli
         if ($insertNeedReturn) {
             $GLOBALS['lastidado'] = $this->Insert_ID();
         }
-        EventAuditLogger::instance()->auditSQLEvent($sql, $outcome, $inputarr);
+        // Log the event if needed
+        if ($shouldLog) {
+            $logger->auditSQLEvent($sql, $outcome, $inputarr, $previousValues);
+        }
         return $retval;
     }
 

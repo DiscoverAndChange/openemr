@@ -527,7 +527,7 @@ MSG;
      * @param $outcome
      * @param null      $binds
      */
-    public function auditSQLEvent($statement, $outcome, $binds = null)
+    public function auditSQLEvent($statement, $outcome, $binds = null, $previousValues = null)
     {
         // Set up crypto object that will be used by this singleton class for encryption/decryption (if not set up already)
         if (!isset($this->cryptoGen)) {
@@ -535,27 +535,7 @@ MSG;
         }
 
         $user =  $_SESSION['authUser'] ?? "";
-
-        /* Don't log anything if the audit logging is not enabled. Exception for "emergency" users */
-        if (empty($GLOBALS['enable_auditlog'])) {
-            if (empty($GLOBALS['gbl_force_log_breakglass']) || !$this->isBreakglassUser($user)) {
-                return;
-            }
-        }
-
         $statement = trim($statement);
-
-        if (
-            (stripos($statement, "insert into log") !== false)      // avoid infinite loop
-            || (stripos($statement, "insert into `log`") !== false) // avoid infinite loop
-            || (stripos($statement, "FROM log ") !== false)         // avoid infinite loop
-            || (stripos($statement, "FROM `log` ") !== false)       // avoid infinite loop
-            || (strpos($statement, "sequences") !== false)          // Don't log sequences - to avoid the affect due to GenID calls
-            || (stripos($statement, "SELECT count(") === 0)         // Skip SELECT count() statements.
-        ) {
-            return;
-        }
-
         /* Determine the query type (select, update, insert, delete) */
         $querytype = "select";
         $querytypes = array("select", "update", "insert", "delete","replace");
@@ -573,20 +553,68 @@ MSG;
             }
         }
 
-        $comments = $statement;
+        // Build structured comment with previousValues if provided
+        $rawQuery = $this->applyBinds($statement, $binds);
+        $commentData = [
+            'version' => 5,
+            'type' => $querytype,
+            'status' => $outcome ? 'success' : 'failure',
+            'raw_query' => $rawQuery
+        ];
 
-        if (is_array($binds)) {
-            // Need to include the binded variable elements in the logging
-            $processed_binds = "";
-            foreach ($binds as $value_bind) {
-                $processed_binds .= "'" . add_escape_custom($value_bind) . "',";
+        // Handle UPDATE specific data
+        $table = '';
+        if ($querytype == 'update' && isset($previousValues)) {
+            if (preg_match('/UPDATE\s+(`?)(\w+)\1\s+SET\s+(.+?)\s+WHERE\s+(.+)/i', $rawQuery, $matches)) {
+                $table = $matches[2];
+                $setClause = $matches[3];
+                $whereClause = $matches[4];
+
+                $commentData['table'] = $table;
+                $commentData['where'] = $whereClause; // $this->applyBinds($whereClause, $binds);
+                $commentData['before'] = $previousValues;
+
+                // Parse SET values for after state
+                $afterValues = $this->parseSetClause($setClause, $binds);
+                $commentData['after'] = $afterValues;
             }
-            rtrim($processed_binds, ',');
-
-            if (!empty($processed_binds)) {
-                $comments .= " (" . $processed_binds . ")";
+        } elseif ($querytype == 'select') {
+            // Parse SELECT statement
+            if (preg_match('/FROM\s+(`?)(\w+)\1/i', $statement, $matches)) {
+                $table = $matches[2];
+            }
+        } elseif ($querytype == 'insert') {
+            // Parse INSERT statement
+            if (preg_match('/INSERT\s+INTO\s+(`?)(\w+)\1/i', $statement, $matches)) {
+                $table = $matches[2];
+            }
+        } elseif ($querytype == 'delete') {
+            // Parse DELETE statement
+            if (preg_match('/DELETE\s+FROM\s+(`?)(\w+)\1/i', $statement, $matches)) {
+                $table = $matches[2];
             }
         }
+
+        $commentData['table'] = $table;
+        if (!empty($binds)) {
+            $commentData['bind_parameters'] = $binds;
+        }
+
+        // Convert to JSON
+//        $comments = json_encode($commentData);
+        $comments = $commentData;
+//        if (is_array($binds)) {
+//            // Need to include the binded variable elements in the logging
+//            $processed_binds = "";
+//            foreach ($binds as $value_bind) {
+//                $processed_binds .= "'" . add_escape_custom($value_bind) . "',";
+//            }
+//            rtrim($processed_binds, ',');
+//
+//            if (!empty($processed_binds)) {
+//                $comments .= " (" . $processed_binds . ")";
+//            }
+//        }
 
         /* Determine the audit event based on the database tables */
         $event = "other";
@@ -595,39 +623,39 @@ MSG;
         /* When searching for table names, truncate the SQL statement,
          * removing any WHERE, SET, or VALUE clauses.
          */
-        $truncated_sql = $statement;
-        $truncated_sql = str_replace("\n", " ", $truncated_sql);
-        if ($querytype == "select") {
-            $startwhere = stripos($truncated_sql, " where ");
-            if ($startwhere > 0) {
-                $truncated_sql = substr($truncated_sql, 0, $startwhere);
-            }
-        } else {
-            $startparen = stripos($truncated_sql, "(");
-            $startset = stripos($truncated_sql, " set ");
-            $startvalues = stripos($truncated_sql, " values ");
-
-            if ($startparen > 0) {
-                $truncated_sql = substr($truncated_sql, 0, $startparen);
-            }
-
-            if ($startvalues > 0) {
-                $truncated_sql = substr($truncated_sql, 0, $startvalues);
-            }
-
-            if ($startset > 0) {
-                $truncated_sql = substr($truncated_sql, 0, $startset);
-            }
-        }
+//        $truncated_sql = $statement;
+//        $truncated_sql = str_replace("\n", " ", $truncated_sql);
+//        if ($querytype == "select") {
+//            $startwhere = stripos($truncated_sql, " where ");
+//            if ($startwhere > 0) {
+//                $truncated_sql = substr($truncated_sql, 0, $startwhere);
+//            }
+//        } else {
+//            $startparen = stripos($truncated_sql, "(");
+//            $startset = stripos($truncated_sql, " set ");
+//            $startvalues = stripos($truncated_sql, " values ");
+//
+//            if ($startparen > 0) {
+//                $truncated_sql = substr($truncated_sql, 0, $startparen);
+//            }
+//
+//            if ($startvalues > 0) {
+//                $truncated_sql = substr($truncated_sql, 0, $startvalues);
+//            }
+//
+//            if ($startset > 0) {
+//                $truncated_sql = substr($truncated_sql, 0, $startset);
+//            }
+//        }
 
         foreach (self::LOG_TABLES as $table => $value) {
-            if (strpos($truncated_sql, $table) !== false) {
+            if (strpos($commentData['table'], $table) !== false) {
                 $event = $value;
-                $category = $this->eventCategoryFinder($comments, $event, $table);
+                $category = $this->eventCategoryFinder($commentData['raw_query'], $event, $commentData['table']);
                 break;
-            } elseif (strpos($truncated_sql, "form_") !== false) {
+            } elseif (strpos($commentData['table'], "form_") !== false) {
                 $event = "patient-record";
-                $category = $this->eventCategoryFinder($comments, $event, $table);
+                $category = $this->eventCategoryFinder($commentData['raw_query'], $event, $commentData['table']);
                 break;
             }
         }
@@ -754,6 +782,13 @@ MSG;
         if (!isset($this->cryptoGen)) {
             $this->cryptoGen = new CryptoGen();
         }
+        $version = '4'; // default to old version
+
+        if (is_array($comments) || is_object($comments)) {
+            // Already structured data, convert to JSON
+            $comments = json_encode($comments);
+            $version = '5';
+        }
         $encrypt = 'No';
         if (!empty($GLOBALS["enable_auditlog_encryption"])) {
             // encrypt the comments field
@@ -824,12 +859,13 @@ MSG;
             $checksumGenerateApi = '';
         }
         sqlInsertClean_audit(
-            "INSERT INTO `log_comment_encrypt` (`log_id`, `encrypt`, `checksum`, `checksum_api`, `version`) VALUES (?, ?, ?, ?, '4')",
+            "INSERT INTO `log_comment_encrypt` (`log_id`, `encrypt`, `checksum`, `checksum_api`, `version`) VALUES (?, ?, ?, ?, ?)",
             [
                 $last_log_id,
                 $encrypt,
                 $checksumGenerate,
-                $checksumGenerateApi
+                $checksumGenerateApi,
+                $version
             ]
         );
         // 3. if api log entry, then insert insert associated entry into api_log
@@ -1001,5 +1037,127 @@ MSG;
             $this->breakglassUser = true;
         }
         return $this->breakglassUser;
+    }
+
+    public function isSqlUpdateStatement(string $sql)
+    {
+        return stripos(trim($sql), 'UPDATE') === 0;
+    }
+
+    public function getPreviousValues(string $sql, bool|array $inputarr)
+    {
+        $sql = $this->applyBinds($sql, $inputarr);
+        // Parse the UPDATE statement
+        if (preg_match('/UPDATE\s+(`?)(\w+)\1\s+SET\s+(.+?)\s+WHERE\s+(.+)/i', $sql, $matches)) {
+            $table = $matches[2];
+            $whereClause = $matches[4];
+            $setClause = $matches[3];
+
+            // Extract fields being updated
+            $changedFields = [];
+            $setParts = explode(',', $setClause);
+            foreach ($setParts as $setPart) {
+                if (preg_match('/`?(\w+)`?\s*=\s*(.+)/', trim($setPart), $fieldMatch)) {
+                    $changedFields[] = $fieldMatch[1];
+                }
+            }
+
+            // Count the number of bound parameters (?) in WHERE clause
+            $whereParamCount = substr_count($whereClause, '?');
+
+            // If we have bound parameters, get them from the end of inputarr
+            $whereParams = [];
+            if ($whereParamCount > 0 && is_array($inputarr)) {
+                $whereParams = array_slice($inputarr, -$whereParamCount);
+            }
+
+            // Build and execute SELECT for previous values
+            if (!empty($changedFields)) {
+                $selectFields = implode('`, `', $changedFields);
+                $selectSQL = "SELECT `$selectFields` FROM `$table` WHERE $whereClause";
+
+                // Execute without prepared statement
+                $selectSQL = $this->applyBinds($selectSQL, $whereParams);
+                $result = sqlQueryNoLog($selectSQL);
+                if ($result !== false) {
+                    return $result;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Check if this SQL statement should be logged
+     * @param string $statement
+     * @return bool
+     */
+    public function shouldLogSql($statement)
+    {
+        $statement = trim($statement);
+
+        // Skip if audit logging is disabled (unless break glass user)
+        if (empty($GLOBALS['enable_auditlog'])) {
+            if (empty($GLOBALS['gbl_force_log_breakglass']) || !$this->isBreakglassUser($user)) {
+                return false;
+            }
+        }
+
+        // Skip logging of log table activity to avoid recursion
+        if (stripos($statement, "insert into log") !== false ||
+            stripos($statement, "insert into `log`") !== false ||
+            stripos($statement, "FROM log ") !== false ||
+            stripos($statement, "FROM `log` ") !== false ||
+            strpos($statement, "sequences") !== false) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * @return void
+     */
+    private function applyBinds($sql, $binds): string
+    {
+        if (empty($binds)) {
+            return $sql;
+        }
+
+        $bindIndex = 0;
+        return preg_replace_callback('/\?/', function ($matches) use ($binds, &$bindIndex) {
+            $value = $binds[$bindIndex++];
+            if ($value === '') {
+                return "''";
+            } else if (is_null($value)) {
+                return 'NULL';
+            } elseif (is_numeric($value)) {
+                return $value;
+            } else {
+                return "'" . add_escape_custom($value) . "'";
+            }
+        }, $sql);
+    }
+
+    private function parseSetClause(string $setClause, $binds)
+    {
+        // Parse SET values for after state
+        $afterValues = [];
+        $setParts = explode(',', $setClause);
+        foreach ($setParts as $setPart) {
+            if (preg_match('/`?(\w+)`?\s*=\s*(.+)/', trim($setPart), $fieldMatch)) {
+                $value = trim($fieldMatch[2]);
+                // Remove quotes if present
+                if ($value === "NULL") {
+                    // no quotes so null value
+                    $value = NULL;
+                }
+                else {
+                    $value = trim($value, "'");
+                }
+                $afterValues[$fieldMatch[1]] = $value;
+            }
+        }
+        return $afterValues;
     }
 }

@@ -39,8 +39,20 @@ class ApplicationTable
     {
         $return = false;
         $result = false;
-
+        $shouldLog = false;
+        $previousValues = null;
         try {
+            // Check if we should log this SQL
+            if ($log) {
+                $logger = EventAuditLogger::instance();
+                $shouldLog = $logger->shouldLogSql($sql);
+
+                // If logging and it's an UPDATE, capture previous values
+                if ($shouldLog && $logger->isSqlUpdateStatement($sql)) {
+                    $previousValues = $logger->getPreviousValues($sql, $params);
+                }
+            }
+
             $return = sqlStatement($sql, $params);
             $result = true;
         } catch (Exception $e) {
@@ -49,8 +61,8 @@ class ApplicationTable
             }
         }
 
-        if ($log) {
-            EventAuditLogger::instance()->auditSQLEvent($sql, $result, $params);
+        if ($log && $shouldLog) {
+            EventAuditLogger::instance()->auditSQLEvent($sql, $result, $params, $previousValues);
         }
 
         return $return;

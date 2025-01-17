@@ -50,6 +50,8 @@ class ApplicationTable extends AbstractTableGateway
     {
         $return = false;
         $result = false;
+        $shouldLog = false;
+        $previousValues = null;
 
         if (!empty($GLOBALS['debug_ssl_mysql_connection'])) {
             $temp_return = $this->adapter->query("SHOW STATUS LIKE 'Ssl_cipher';")->execute();
@@ -59,6 +61,15 @@ class ApplicationTable extends AbstractTableGateway
         }
 
         try {
+            // Check if we should log this SQL
+            $logger = EventAuditLogger::instance();
+            $shouldLog = $logger->shouldLogSql($sql);
+
+            // If logging and it's an UPDATE, capture previous values
+            if ($shouldLog && $logger->isSqlUpdateStatement($sql)) {
+                $previousValues = $logger->getPreviousValues($sql, $params);
+            }
+
             $statement  = $this->adapter->query($sql);
             $return     = $statement->execute($params);
             $result     = true;
@@ -80,8 +91,8 @@ class ApplicationTable extends AbstractTableGateway
        * @see EventAuditLogger::auditSQLEvent
        * Logging, if the $log is true
        */
-        if ($log) {
-            EventAuditLogger::instance()->auditSQLEvent($sql, $result, $params);
+        if ($log && $shouldLog) {
+            EventAuditLogger::instance()->auditSQLEvent($sql, $result, $params, $previousValues);
         }
 
         return $return;
