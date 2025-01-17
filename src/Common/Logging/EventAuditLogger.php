@@ -201,9 +201,14 @@ MSG;
     public function getEvents($params)
     {
         // parse the parameters
-        $cols = "DISTINCT l.`date`, l.`event`, l.`category`, l.`user`, l.`groupname`, l.`patient_id`, l.`success`, l.`comments`, l.`user_notes`, l.`crt_user`, l.`log_from`, l.`menu_item_id`, l.`ccda_doc_id`, l.`id`,
-                 el.`encrypt`, el.`checksum`, el.`checksum_api`, el.`version`, el.`log_id` as `log_id_hash`,
-                 al.`log_id` as log_id_api, al.`user_id`, al.`patient_id` as patient_id_api, al.`ip_address`, al.`method`, al.`request`, al.`request_url`, al.`request_body`, al.`response`, al.`created_time` ";
+        $cols = "DISTINCT l.`date`, l.`event`, l.`category`, l.`user`, l.`groupname`, l.`patient_id`, l.`success`, l.`comments`, l.`user_notes`,
+             l.`crt_user`, l.`log_from`, l.`menu_item_id`, l.`ccda_doc_id`, l.`id`,
+             el.`encrypt`, el.`checksum`, el.`checksum_api`, el.`version`, el.`log_id` as `log_id_hash`,
+             al.`log_id` as log_id_api, al.`user_id`, al.`patient_id` as patient_id_api, al.`ip_address`, al.`method`,
+             al.`request`, al.`request_url`, al.`request_body`, al.`response`, al.`created_time`,
+             pd.pubpid, pd.fname as patient_fname, pd.mname as patient_mname, pd.lname as patient_lname,
+             u.fname as user_fname, u.lname as user_lname";
+
         if (isset($params['cols']) && $params['cols'] != "") {
             $cols = $params['cols'];
         }
@@ -258,21 +263,18 @@ MSG;
             if ($sortby == "comments") {
                 $sortby = "description";
             }
-
             if ($sortby == "groupname") {
                 $sortby = ""; //VicarePlus :: since there is no groupname in extended_log
             }
-
             if ($sortby == "success") {
                 $sortby = "";   //VicarePlus :: since there is no success field in extended_log
             }
-
             if ($sortby == "category") {
                 $sortby = "";  //VicarePlus :: since there is no category field in extended_log
             }
 
             $sqlBindArray = array();
-            $columns = "DISTINCT date, event, user, recipient,patient_id,description";
+            $columns = "DISTINCT date, event, user, recipient, patient_id, description";
             $sql = "SELECT $columns FROM extended_log WHERE date >= ? AND date <= ?";
             array_push($sqlBindArray, $date1, $date2);
 
@@ -282,8 +284,8 @@ MSG;
             }
 
             if ($patient != "") {
-                $sql .= " AND patient_id LIKE ?";
-                array_push($sqlBindArray, $patient);
+                $sql .= " AND (patient_id LIKE ? OR patient_id IN (SELECT pid FROM patient_data WHERE pubpid LIKE ?))";
+                array_push($sqlBindArray, $patient, $patient);
             }
 
             if ($levent != "") {
@@ -292,7 +294,7 @@ MSG;
             }
 
             if ($sortby != "") {
-                $sql .= " ORDER BY " . escape_sql_column_name($sortby, array('extended_log')) . " DESC"; // descending order
+                $sql .= " ORDER BY " . escape_sql_column_name($sortby, array('extended_log')) . " DESC";
             }
 
             $sql .= " LIMIT 5000";
@@ -302,6 +304,8 @@ MSG;
             $sql = "SELECT $cols FROM `log_comment_encrypt` as el " .
                 "LEFT OUTER JOIN `log` as l ON el.`log_id` = l.`id` " .
                 "LEFT OUTER JOIN `api_log` as al ON el.`log_id` = al.`log_id` " .
+                "LEFT OUTER JOIN `patient_data` as pd ON l.`patient_id` = pd.`pid` " .
+                "LEFT OUTER JOIN `users` as u ON al.`user_id` = u.`id` " .
                 "WHERE (l.`date` IS NULL OR (l.`date` >= ? AND l.`date` <= ?))";
             array_push($sqlBindArray, $date1, $date2);
 
@@ -311,8 +315,8 @@ MSG;
             }
 
             if ($patient != "") {
-                $sql .= " AND l.`patient_id` LIKE ?";
-                array_push($sqlBindArray, $patient);
+                $sql .= " AND (l.`patient_id` LIKE ? OR pd.`pubpid` LIKE ?)";
+                array_push($sqlBindArray, $patient, $patient);
             }
 
             if ($levent != "") {
@@ -326,7 +330,7 @@ MSG;
             }
 
             if ($sortby != "") {
-                $sql .= " ORDER BY `" . escape_sql_column_name($sortby, array('log')) . "`  " . escape_sort_order($direction); // descending order
+                $sql .= " ORDER BY " . escape_sql_column_name($sortby, array('log')) . " " . escape_sort_order($direction);
             } else {
                 $sql .= " ORDER BY el.`log_id` DESC";
             }
@@ -584,13 +588,17 @@ MSG;
             if (preg_match('/FROM\s+(`?)(\w+)\1/i', $statement, $matches)) {
                 $table = $matches[2];
             }
-        } elseif ($querytype == 'insert') {
-            $insertData = $this->parseInsertQuery($rawQuery);
-            if ($insertData !== null) {
-                $table = $insertData['table'];
+        } elseif ($querytype == 'insert' || $querytype == 'replace') {
+            $parseResult = $this->parseInsertQuery($rawQuery);
+            if ($parseResult !== null) {
+                $table = $parseResult['table'];
                 $commentData['table'] = $table;
-                $commentData['before'] = $insertData['before'];
-                $commentData['after'] = $insertData['after'];
+                $commentData['before'] = $parseResult['before'];
+                $commentData['after'] = $parseResult['after'];
+                if ($parseResult['isReplace']) {
+                    // Mark as a potential update operation
+                    $commentData['replace_operation'] = true;
+                }
             }
         } elseif ($querytype == 'delete') {
             // Parse DELETE statement
@@ -1035,6 +1043,8 @@ MSG;
             return "Lab Result";
         } elseif ($event == 'security-administration') {
             return "Security";
+        } elseif ($table == 'documents') {
+            return "Documents";
         }
 
         return $event;
@@ -1301,6 +1311,20 @@ MSG;
 
         // Return default if parsing failed
         return $result;
+    }
+
+    /**
+     * Retrieve the existing record before a REPLACE operation
+     *
+     * @param string $table The table name
+     * @param mixed $id The ID value
+     * @return array|null The existing record or null if not found
+     */
+    private function getPreviousRecord($table, $id)
+    {
+        $selectSQL = "SELECT * FROM `" . escape_table_name($table) . "` WHERE id = ?";
+        $result = sqlQueryNoLog($selectSQL, array($id));
+        return $result ?: null;
     }
 
     /**

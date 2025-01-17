@@ -63,6 +63,7 @@ function getHumanReadableTableName($table, $logData)
         'patient_data' => 'Patient Demographics',
         'recent_patients' => 'Most Recent Patients Viewed List',
         'openemr_postcalendar_events' => 'Calendar Appointment',
+        'pnotes' => 'Messages'
         // Add more mappings as needed
     ];
     if (isset($categories[$table])) {
@@ -381,6 +382,20 @@ if (!empty($_GET)) {
                                                 $patterns = array('/^success/', '/^failure/', '/ encounter/');
                                                 $replace = array(xl('success'), xl('failure'), xl('encounter', '', ' '));
 
+                                                $patientName = '';
+                                                if (!empty($iter['patient_fname'])) {
+                                                    $patientName = text($iter['patient_lname'] . ', ' . $iter['patient_fname']);
+                                                    if (!empty($iter['patient_mname'])) {
+                                                        $patientName .= ' ' . text($iter['patient_mname']);
+                                                    }
+                                                }
+
+                                                // Format provider name
+                                                $providerName = '';
+                                                if (!empty($iter['user_fname'])) {
+                                                    $providerName = text($iter['user_lname'] . ', ' . $iter['user_fname']);
+                                                }
+
                                                 if (!empty($iter['encrypt'])) {
                                                     $commentEncrStatus = $iter['encrypt'];
                                                 } else {
@@ -448,10 +463,14 @@ if (!empty($_GET)) {
                                                     <td><?php echo text(oeFormatDateTime($iter["date"], 'global', true)); ?></td>
                                                     <td><?php echo text(preg_replace('/select$/', 'Query', $iter["event"])); //Convert select term to Query for MU2 requirements ?></td>
                                                     <td><?php echo text($iter["category"]); ?></td>
-                                                    <td><?php echo text($iter["user"]); ?></td>
+                                                    <td title="<?php echo xla('User Id') . ': ' . attr($iter["user"]); ?>">
+                                                        <?php echo $providerName ? text($providerName) : text($iter["user"]); ?>
+                                                    </td>
                                                     <td><?php echo text($iter["crt_user"]); ?></td>
                                                     <td><?php echo text($iter["groupname"]); ?></td>
-                                                    <td><?php echo text($iter["patient_id"]); ?></td>
+                                                    <td title="<?php echo (!empty($patientName)) ? (xla('Patient') . ': ' . attr($patientName) . '&#13;' . xla('PID') . ': ' . attr($iter["patient_id"])) : ''; ?>">
+                                                        <?php echo (!empty($iter["pubpid"])) ? text($iter["pubpid"]) : text($iter["patient_id"]); ?>
+                                                    </td>
                                                     <td><?php echo text($iter["success"]); ?></td>
                                                     <?php if (!empty($iter["ip_address"])) { ?>
                                                         <td><?php echo text($iter["ip_address"]) . ", " . text($iter["method"]) . ", " . text($iter["request"]); ?></td>
@@ -472,6 +491,16 @@ if (!empty($_GET)) {
                                                                 $actionIcon = '';
 
                                                                 switch($logData['type']) {
+                                                                    case 'replace':
+                                                                        $actionIcon = '<i class="fas fa-edit text-warning mr-1"></i>';
+                                                                        $summaryText = "Updated/Replaced " . text(getHumanReadableTableName($logData['table'], $logData));
+                                                                        // Add identifier if available
+                                                                        if (!empty($logData['where'])) {
+                                                                            if (preg_match('/(\w+)\s*=\s*[\'"]?(\d+)[\'"]?/', $logData['where'], $matches)) {
+                                                                                $summaryText .= " #" . text($matches[2]);
+                                                                            }
+                                                                        }
+                                                                        break;
                                                                     case 'update':
                                                                         $actionIcon = '<i class="fas fa-edit text-warning mr-1"></i>';
                                                                         $summaryText = "Updated " . text(getHumanReadableTableName($logData['table'], $logData));
@@ -510,7 +539,7 @@ if (!empty($_GET)) {
                                                                         <?php endif; ?>
                                                                     </div>
 
-                                                                    <?php if (in_array($logData['type'], ['update', 'insert']) && !empty($logData['before'])): ?>
+                                                                    <?php if (in_array($logData['type'], ['update', 'insert', 'replace']) && !empty($logData['before'])): ?>
                                                                         <!-- First Expansion Level - Changes Table -->
                                                                         <div class="log-details mt-2" style="display:none;">
                                                                             <table class="table table-sm table-bordered" style="max-width: 50vw;">
