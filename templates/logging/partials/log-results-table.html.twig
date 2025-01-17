@@ -1,0 +1,82 @@
+<div class="card card-body">
+    <div class="row">
+            <div id="sortby_date" class="sortby col-1" title="{{ 'Sort by date/time'|xla }}">{{ 'Date'|xlt }}</div>
+            <div id="sortby_event" class="sortby" title="{{ 'Sort by Event'|xla }}">{{ 'Event'|xlt }}</div>
+            <div id="sortby_category" class="sortby" title="{{ 'Sort by Category'|xla }}">{{ 'Category'|xlt }}</div>
+            <th id="sortby_user" class="sortby" title="{{ 'Sort by User'|xla }}">{{ 'User'|xlt }}</th>
+            <th id="sortby_cuser" class="sortby" title="{{ 'Sort by Crt User'|xla }}">{{ 'Certificate User'|xlt }}</th>
+            <th id="sortby_group" class="sortby" title="{{ 'Sort by Group'|xla }}">{{ 'Group'|xlt }}</th>
+            <th id="sortby_pid" class="sortby" title="{{ 'Sort by PatientID'|xla }}">{{ 'Patient ID'|xlt }}</th>
+            <th id="sortby_success" class="sortby" title="{{ 'Sort by Success'|xla }}">{{ 'Success'|xlt }}</th>
+            <th title="{{ 'API logging'|xla }}">{{ 'API logging'|xlt }}</th>
+            <th id="sortby_comments" class="sortby" title="{{ 'Sort by Comments'|xla }}">{{ 'Comments'|xlt }}</th>
+        </tr>
+        </thead>
+        <div>
+    {% for log in logs %}
+        <tr>
+            <td>{{ log.date|date }}</td>
+            <td>{{ log.event|text }}</td>
+            <td>{{ log.category|text }}</td>
+            <td>{{ log.user|text }}</td>
+            <td>{{ log.crt_user|text }}</td>
+            <td>{{ log.groupname|text }}</td>
+            <td>{{ log.patient_id|text }}</td>
+            <td>{{ log.success|text }}</td>
+            <td>
+                {% if log.ip_address %}
+                {{ log.ip_adddress|text }}, {{ log.method|text }}, {{ log.request|text }}
+                {% endif %}
+            </td>
+            <td>
+                {% if log.summary %}
+                    <div class="log-entry">
+                        <div class="d-flex align-items-center">
+                            <i class="fas {{ log.summary.icon|attr}} {{ log.summary.icon_class}} mr-1"></i>
+                            <span class="font-weight-bold">{{ log.summary.text|text }}</span>
+                            {% if log.comments.type != 'select' %}
+                                <button class="btn btn-sm btn-link ml-2" onclick="toggleDetails(this)">
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                            {% endif %}
+                        </div>
+
+                        {% if log.comments.type == 'update' and log.comments.before is not empty %}
+                            <div class="log-details mt-2" style="display:none;">
+                                <div class="card">
+                                    <div class="row">
+                                        <div class="col-4">{{ "Field"|xlt }}</div>
+                                        <div class="col-4">{{ "Previous Value"|xlt }}</div>
+                                        <div class="col-4">{{ "New Value"|xlt }}</div>
+                                    </div>
+                                    {% for field, newValue in log.comments.after %}
+                                        {% if log.comments.before[field] != newValue %}
+                                            <div class="row">
+                                                <div class="col-4">{{ field|text }}</div>
+                                                <div class="col-4">{{ log.comments.before[field]|default('')|text }}</div>
+                                                <div class="col-4">{{ newValue|text }}</div>
+                                            </div>
+                                        {% endif %}
+                                    {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        {% endif %}
+
+                        {% if log.comments.raw_query is not empty %}
+                            <div class="log-query mt-2" style="display:none;">
+                                <div class="bg-light p-2 rounded">
+                                    <p>{{ log.comments.raw_query|text }}</p>
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+                {% else %}
+                    {# Handle non-structured comments #}
+                    {{ log.comments|text }}
+                {% endif %}
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>

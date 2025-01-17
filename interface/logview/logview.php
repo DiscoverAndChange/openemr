@@ -26,6 +26,53 @@ if (!AclMain::aclCheckCore('admin', 'users')) {
     exit;
 }
 
+//$twig = (new TwigContainer(null, $GLOBALS['kernel']))->getTwig();
+//$controller = new LogViewController($twig);
+//echo $controller->index();
+//exit;
+
+function getHumanReadableTableName($table, $logData)
+{
+    if ($table == 'lists' || $table == 'lists_touch') {
+        $title = '';
+        if (isset($logData['after']['type'])) {
+            switch ($logData['after']['type']) {
+                default:
+                    $title = implode(" ", array_map('ucfirst', explode('_', $logData['after']['type'])));
+            }
+        }
+        if ($table == 'lists_touch') {
+            $title .= " Touch";
+        }
+        return $title;
+    }
+    if ($table == 'forms') {
+        $title = '';
+        if (isset($logData['after']['form_name'])) {
+            $title = $logData['after']['form_name'];
+        }
+        return xl('Form record entry') . ' ' . $title;
+    }
+    // Use the logic from eventCategoryFinder
+    $categories = [
+        'prescriptions' => 'Medications',
+        'form_vitals' => 'Vital Signs',
+        'immunizations' => 'Immunizations',
+        'history_data' => 'History',
+        'insurance_data' => 'Insurance',
+        'patient_data' => 'Patient Demographics',
+        'recent_patients' => 'Most Recent Patients Viewed List',
+        'openemr_postcalendar_events' => 'Calendar Appointment',
+        // Add more mappings as needed
+    ];
+    if (isset($categories[$table])) {
+        return $categories[$table];
+    } else {
+        return implode(" ", array_map('ucfirst', explode('_', $table)));
+    }
+    return $categories[$table] ?? ucfirst($table);
+}
+
 if (!empty($_GET)) {
     if (!CsrfUtils::verifyCsrfToken($_GET["csrf_token_form"])) {
         CsrfUtils::csrfNotVerified();
@@ -296,7 +343,7 @@ if (!empty($_GET)) {
                                             <th id="sortby_pid" class="sortby" title="<?php echo xla('Sort by PatientID'); ?>"><?php echo xlt('Patient ID'); ?></th>
                                             <th id="sortby_success" class="sortby" title="<?php echo xla('Sort by Success'); ?>"><?php echo xlt('Success'); ?></th>
                                             <th title="<?php echo xla('API logging'); ?>"><?php echo xlt('API logging'); ?></th>
-                                            <th id="sortby_comments" class="sortby" title="<?php echo xla('Sort by Comments'); ?>"><?php echo xlt('Comments'); ?></th>
+                                            <th id="sortby_comments" class="sortby w-50" title="<?php echo xla('Sort by Comments'); ?>"><?php echo xlt('Comments'); ?></th>
                                         </tr>
                                         </thead>
                                         <tbody
@@ -423,7 +470,7 @@ if (!empty($_GET)) {
                                                                 switch($logData['type']) {
                                                                     case 'update':
                                                                         $actionIcon = '<i class="fas fa-edit text-warning mr-1"></i>';
-                                                                        $summaryText = "Updated " . text(ucfirst($logData['table']));
+                                                                        $summaryText = "Updated " . text(getHumanReadableTableName($logData['table'], $logData));
                                                                         // Add identifier if available
                                                                         if (!empty($logData['where'])) {
                                                                             if (preg_match('/(\w+)\s*=\s*[\'"]?(\d+)[\'"]?/', $logData['where'], $matches)) {
@@ -434,17 +481,17 @@ if (!empty($_GET)) {
 
                                                                     case 'insert':
                                                                         $actionIcon = '<i class="fas fa-plus text-success mr-1"></i>';
-                                                                        $summaryText = "Created new " . text(ucfirst($logData['table']));
+                                                                        $summaryText = "Created new " . text(getHumanReadableTableName($logData['table'], $logData));
                                                                         break;
 
                                                                     case 'delete':
                                                                         $actionIcon = '<i class="fas fa-trash text-danger mr-1"></i>';
-                                                                        $summaryText = "Deleted " . text(ucfirst($logData['table']));
+                                                                        $summaryText = "Deleted " . text(getHumanReadableTableName($logData['table'], $logData));
                                                                         break;
 
                                                                     default:
                                                                         $actionIcon = '<i class="fas fa-search text-info mr-1"></i>';
-                                                                        $summaryText = "Query " . text(ucfirst($logData['table']));
+                                                                        $summaryText = "Query " . text(getHumanReadableTableName($logData['table'], $logData));
                                                                 }
                                                                 ?>
                                                                 <div class="log-entry">
@@ -459,10 +506,10 @@ if (!empty($_GET)) {
                                                                         <?php endif; ?>
                                                                     </div>
 
-                                                                    <?php if ($logData['type'] == 'update' && !empty($logData['before'])): ?>
+                                                                    <?php if (in_array($logData['type'], ['update', 'insert']) && !empty($logData['before'])): ?>
                                                                         <!-- First Expansion Level - Changes Table -->
                                                                         <div class="log-details mt-2" style="display:none;">
-                                                                            <table class="table table-sm table-bordered">
+                                                                            <table class="table table-sm table-bordered" style="max-width: 50vw;">
                                                                                 <thead>
                                                                                 <tr>
                                                                                     <th><?php echo xlt("Field"); ?></th>
@@ -488,8 +535,13 @@ if (!empty($_GET)) {
                                                                     <!-- Second Expansion Level - Raw Query -->
                                                                     <?php if (!empty($logData['raw_query'])): ?>
                                                                         <div class="log-query mt-2" style="display:none;">
-                                                                            <div class="bg-light p-2 rounded">
-                                                                                <pre class="mb-0"><code><?php echo text(preg_replace('/^select/i', 'Query', mb_convert_encoding($logData['raw_query'], 'UTF-8', 'UTF-8'))); ?></code></pre>
+                                                                            <div class="card"  style="max-width: 50vw">
+                                                                                <div class="card-header">
+                                                                                    <h6><?php echo xlt("Raw Query"); ?></h6>
+                                                                                </div>
+                                                                                <div class="card-body bg-light p-2 rounded">
+                                                                                    <?php echo text(preg_replace('/^select/i', 'Query', mb_convert_encoding($logData['raw_query'], 'UTF-8', 'UTF-8'))); ?>
+                                                                                </div>
                                                                             </div>
                                                                         </div>
                                                                     <?php endif; ?>

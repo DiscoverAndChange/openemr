@@ -1,0 +1,339 @@
+{# templates/logs/log-viewer.html.twig #}
+<html>
+<head>
+    <title>{{ 'Logs Viewer'|xlt }}</title>
+
+    {{ setupHeader(['common','datetime-picker','datetime-picker-translated',]) }}
+    <script type="text/javascript">
+        document.addEventListener("DOMContentLoaded", function() {
+            datetimepickerTranslated('.datetimepicker', {
+                timepicker: true
+                , showSeconds: false
+                , formatInput: true
+            });
+        });
+    </script>
+
+    <style>
+        .sortby {
+            cursor: pointer;
+        }
+    </style>
+    <!-- Add to header styles section -->
+    <style>
+        .log-entry {
+            position: relative;
+        }
+        .log-details, .log-query {
+            font-size: 0.9em;
+        }
+        .log-details table {
+            margin-bottom: 0;
+        }
+        pre code {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+    </style>
+    <script>
+        //function to disable the event type field if the event name is disclosure
+        function eventTypeChange(eventname) {
+            if (eventname == "disclosure") {
+                document.theform.type_event.disabled = true;
+            } else {
+                document.theform.type_event.disabled = false;
+            }
+        }
+
+        // VicarePlus :: This invokes the find-patient popup.
+        function sel_patient() {
+            dlgopen('../main/calendar/find_patient_popup.php?pflag=0', '_blank', 500, 400);
+        }
+
+        // VicarePlus :: This is for callback by the find-patient popup.
+        function setpatient(pid, lname, fname, dob) {
+            var f = document.theform;
+            f.form_patient.value = lname + ', ' + fname;
+            f.form_pid.value = pid;
+        }
+    </script>
+</head>
+<body class="body_top">
+    <div id="container_div" class="container-fluid">
+        <div class="row">
+            <div class="col-sm-12">
+                <div class="clearfix">
+                    <h2>{{ "Logs Viewer"|xlt }}</h2>
+                </div>
+            </div>
+        </div>
+
+        <div class="container-fluid mb-3">
+            <ul class="nav nav-pills">
+                <li class="nav-item" id='li-main-log'>
+                    <a href='#' class="active nav-link font-weight-bold" id='main-log-li'>{{ "Main Log"|xlt }}</a>
+                </li>
+                <li class="nav-item" id='li-others-log'>
+                    <a href='#' id='others-log-li' class="nav-link font-weight-bold">{{ "Other Logs"|xlt }}</a>
+                </li>
+            </ul>
+        </div>
+
+        {# Add form and log display sections from existing template #}
+        <div class="row" id="main-log-div">
+            <div class="col-sm-12">
+                <div class="jumbotron jumbotron-fluid py-3">
+                    <div class="col-sm-12">
+                        <h3 class="text-center">{{ "Main Log"|xlt }}</h3>
+                        <form method="get" name="theform" id="theform">
+                            <input type="hidden" name="csrf_token_form" value="{{ csrfToken|attr }}" />
+                            <input type="hidden" name="direction" id="direction" value="{{ direction|attr }}" />
+                            <input type="hidden" name="sortby" id="sortby" value="{{ sortby|attr }}" />
+                            <input type="hidden" name="show" value="show" />
+
+                            {# Date Range Filters #}
+                            <div class="form-row">
+                                <label class="col-sm-1 col-form-label" for="start_date">{{ "Start Date"|xlt }}:</label>
+                                <div class="col-sm-3">
+                                    <input class="datetimepicker form-control" type="text" size="18" name="start_date" id="start_date"
+                                           value="{{ start_date|attr }}" title="{{ "Start Date"|xla }}" />
+                                </div>
+                                <label class="col-sm-1 col-form-label" for="end_date">{{ "End Date"|xlt }}:</label>
+                                <div class="col-sm-3">
+                                    <input class="datetimepicker form-control" type="text" size="18" name="end_date" id="end_date"
+                                           value="{{ end_date|attr }}" title="{{ "End Date"|xla }}" />
+                                </div>
+                                <label class="col-sm-1 col-form-label" for="form_patient">{{ "Patient"|xlt }}:</label>
+                                <div class="col-sm-3">
+                                    <input type='text' size='20' class='form-control' name='form_patient' id='form_patient' style='cursor:pointer;'
+                                           value='{{ form_patient ? form_patient|attr : "Click To Select"|xla }}'
+                                           onclick='sel_patient()' title='{{ "Click to select patient"|xla }}' />
+                                    <input type='hidden' name='form_pid' value='{{ form_pid|attr }}' />
+                                </div>
+                            </div>
+
+                            {# User and Event Filters #}
+                            <div class="form-row mt-3">
+                                <label class="col-sm-1 col-form-label" for="form_user">{{ "User"|xlt }}:</label>
+                                <div class="col-sm-3">
+                                    <select name='form_user' id='form_user' class='form-control'>
+                                        <option value=''>{{ "All"|xlt }}</option>
+                                        {% for user in users %}
+                                            <option value='{{ user.username|attr }}' {{ user.username == form_user ? "selected" : "" }}>
+                                                {{ user.name|text }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <label class="col-sm-1 col-form-label" for="eventname">{{ "Name of Events"|xlt }}:</label>
+                                <div class="col-sm-3">
+                                    <select name='eventname' id='eventname' class='form-control' onchange='eventTypeChange(this.options[this.selectedIndex].value);'>
+                                        <option value=''>{{ "All"|xlt }}</option>
+                                        {% for event in events %}
+                                            <option value='{{ event|attr }}' {{ event == eventname ? "selected" : "" }}>
+                                                {{ event|text }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <label class="col-sm-1 col-form-label" for="type_event">{{ "Type of Events"|xlt }}:</label>
+                                <div class="col-sm-3">
+                                    <select name='type_event' id='type_event' class='form-control' {{ eventname == "disclosure" ? "disabled" : "" }}>
+                                        <option value=''>{{ "All"|xlt }}</option>
+                                        {% set event_types = ["select", "update", "insert", "delete", "replace"] %}
+                                        {% for type in event_types %}
+                                            <option value='{{ type|attr }}' {{ type == type_event ? "selected" : "" }}>
+                                                {{ type == "select" ? "Query"|xlt : type|capitalize|xlt }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {# Submit Button #}
+                            <div class="form-row mt-3">
+                                <div class="col-12">
+                                    <div class="btn-group">
+                                        <button type="submit" class="btn btn-primary btn-save">{{ "Submit"|xlt }}</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                        {% if logs is empty and show is defined %}
+                            <div class="alert alert-info mt-3">
+                                {{ "No results found"|xlt }}
+                            </div>
+                        {% elseif show is not defined %}
+                            <div class="alert alert-info mt-3">
+                                {{ "Click the Submit button to display the main log"|xlt }}
+                            </div>
+                        {% else %}
+                            {# Log Results Table - Include your existing table code here #}
+                            {% include 'logging/partials/log-results-table.html.twig' %}
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# Other Logs Section #}
+        <div class="row oe-display" id="other-logs-div" style="display: none;">
+            <div class="col-sm-12">
+                <div class="jumbotron jumbotron-fluid py-3">
+                    <div class="col-sm-12">
+                        <h3 class="text-center">{{ "Other Logs"|xlt }}</h3>
+                        <div class="btn-group">
+                            <a href='#' id='view-billing-log-link' class='btn btn-secondary'
+                               title='{{ "See messages from the last set of generated claims"|xla }}'>
+                                {{ "Billing Log"|xlt }}
+                            </a>
+                            <a href='#' id='view-couchdb-log-link' class='btn btn-secondary'
+                               title='{{ "See couchdb error log"|xla }}'>
+                                {{ "CouchDB Error Log"|xlt }}
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+<script>
+    // jQuery stuff to make the page a little easier to use
+    $(function () {
+        $("#other-logs-div").hide();
+        $("#main-log-li").click(function () {
+            $("#main-log-div").show(250);
+            $("#other-logs-div").hide(250);
+            $("#main-log-li").addClass("active");
+            $("#others-log-li").removeClass("active");
+        });
+
+        $("#others-log-li").click(function () {
+            $("#other-logs-div").show(250);
+            $("#main-log-div").hide(250);
+            $("#others-log-li").addClass("active");
+            $("#main-log-li").removeClass("active");
+        });
+
+        // billing log modal
+        $("#view-billing-log-link").click(function () {
+            top.restoreSession();
+            dlgopen('../billing/customize_log.php', '_blank', 500, 400);
+        });
+        // couchdb log modal
+        $("#view-couchdb-log-link").click(function () {
+            top.restoreSession();
+            dlgopen('../couchdb/couchdb_log.php', '_blank', 500, 400);
+        });
+
+        // click-able column headers to sort the list
+        $('.sortby')
+        $("#sortby_date").click(function () {
+            set_sort_direction();
+            $("#sortby").val("date");
+            $("#theform").submit();
+        });
+        $("#sortby_event").click(function () {
+            set_sort_direction();
+            $("#sortby").val("event");
+            $("#theform").submit();
+        });
+        $("#sortby_category").click(function () {
+            set_sort_direction();
+            $("#sortby").val("category");
+            $("#theform").submit();
+        });
+        $("#sortby_user").click(function () {
+            set_sort_direction();
+            $("#sortby").val("user");
+            $("#theform").submit();
+        });
+        $("#sortby_cuser").click(function () {
+            set_sort_direction();
+            $("#sortby").val("user");
+            $("#theform").submit();
+        });
+        $("#sortby_group").click(function () {
+            set_sort_direction();
+            $("#sortby").val("groupname");
+            $("#theform").submit();
+        });
+        $("#sortby_pid").click(function () {
+            set_sort_direction();
+            $("#sortby").val("patient_id");
+            $("#theform").submit();
+        });
+        $("#sortby_success").click(function () {
+            set_sort_direction();
+            $("#sortby").val("success");
+            $("#theform").submit();
+        });
+        $("#sortby_comments").click(function () {
+            set_sort_direction();
+            $("#sortby").val("comments");
+            $("#theform").submit();
+        });
+    });
+    //
+    //     $('.datetimepicker').datetimepicker({
+    //     <?php $datetimepicker_timepicker = true; ?>
+    // <?php $datetimepicker_showseconds = false; ?>
+    // <?php $datetimepicker_formatInput = true; ?>
+    // <?php require($GLOBALS['srcdir'] . '/js/xl/jquery-datetimepicker-2-5-4.js.php'); ?>
+    // <?php // can add any additional javascript settings to datetimepicker here; need to prepend first setting with a comma ?>
+    // });
+    // });
+
+    function set_sort_direction() {
+        if ($('#direction').val() == 'asc')
+            $('#direction').val('desc');
+        else
+            $('#direction').val('asc');
+    }
+    function eventTypeChange(eventname) {
+        document.theform.type_event.disabled = (eventname == "disclosure");
+    }
+
+    function sel_patient() {
+        dlgopen('../main/calendar/find_patient_popup.php?pflag=0', '_blank', 500, 400);
+    }
+
+    function setpatient(pid, lname, fname, dob) {
+        var f = document.theform;
+        f.form_patient.value = lname + ', ' + fname;
+        f.form_pid.value = pid;
+    }
+</script>
+<!-- Add to bottom of file for the JavaScript -->
+<script>
+    function toggleDetails(button) {
+        const entry = button.closest('.log-entry');
+        const details = entry.querySelector('.log-details');
+        const query = entry.querySelector('.log-query');
+        const icon = button.querySelector('i');
+
+        if (details) details.style.display = details.style.display === 'none' ? 'block' : 'none';
+        if (query) query.style.display = query.style.display === 'none' ? 'block' : 'none';
+
+        // Toggle icon
+        icon.classList.toggle('fa-chevron-down');
+        icon.classList.toggle('fa-chevron-up');
+    }
+
+    // Add to existing document ready function or create one
+    $(document).ready(function() {
+        // Initialize tooltips
+        $('[data-toggle="tooltip"]').tooltip();
+
+        // Add hover handlers for record IDs
+        $('.log-entry').on('mouseenter', '[data-record-id]', function() {
+            const recordId = $(this).data('record-id');
+            const table = $(this).data('table');
+            // Could add AJAX call here to fetch current record state
+        });
+    });
+</script>
+</body>
+</html>

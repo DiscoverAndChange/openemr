@@ -584,9 +584,12 @@ MSG;
                 $table = $matches[2];
             }
         } elseif ($querytype == 'insert') {
-            // Parse INSERT statement
-            if (preg_match('/INSERT\s+INTO\s+(`?)(\w+)\1/i', $statement, $matches)) {
-                $table = $matches[2];
+            $insertData = $this->parseInsertQuery($rawQuery);
+            if ($insertData !== null) {
+                $table = $insertData['table'];
+                $commentData['table'] = $table;
+                $commentData['before'] = $insertData['before'];
+                $commentData['after'] = $insertData['after'];
             }
         } elseif ($querytype == 'delete') {
             // Parse DELETE statement
@@ -688,6 +691,36 @@ MSG;
         $group = $_SESSION['authProvider'] ?? "";
         $success = (int)($outcome !== false);
         $this->recordLogItem($success, $event, $user, $group, $comments, $pid, $category);
+    }
+
+    /**
+     * Parse SET clause used in both UPDATE and INSERT ... SET statements
+     *
+     * @param string $setClause The SET portion of the query
+     * @return array Key-value pairs of column names and their values
+     */
+    private function parseInsertSetClause($setClause)
+    {
+        $values = [];
+        $setParts = explode(',', $setClause);
+
+        foreach ($setParts as $setPart) {
+            if (preg_match('/`?(\w+)`?\s*=\s*(.+)/i', trim($setPart), $matches)) {
+                $column = trim($matches[1], '`\'" ');
+                $value = trim($matches[2]);
+
+                // Handle NULL values
+                if (strtoupper($value) === 'NULL') {
+                    $values[$column] = null;
+                    continue;
+                }
+
+                // Remove surrounding quotes if present
+                $values[$column] = trim($value, "'\"");
+            }
+        }
+
+        return $values;
     }
 
     /**
@@ -1139,25 +1172,214 @@ MSG;
         }, $sql);
     }
 
-    private function parseSetClause(string $setClause, $binds)
+    /**
+     * Parse INSERT queries to extract table, columns, and values for audit logging.
+     * Handles both INSERT INTO ... VALUES and INSERT INTO ... SET syntax.
+     *
+     * @param string $rawQuery The complete SQL query with binds applied
+     * @return array|null Returns array with table, before and after states, or null if parsing fails
+     */
+    private function parseInsertQuery($rawQuery)
     {
-        // Parse SET values for after state
-        $afterValues = [];
-        $setParts = explode(',', $setClause);
-        foreach ($setParts as $setPart) {
-            if (preg_match('/`?(\w+)`?\s*=\s*(.+)/', trim($setPart), $fieldMatch)) {
-                $value = trim($fieldMatch[2]);
-                // Remove quotes if present
-                if ($value === "NULL") {
-                    // no quotes so null value
-                    $value = NULL;
-                }
-                else {
-                    $value = trim($value, "'");
-                }
-                $afterValues[$fieldMatch[1]] = $value;
+        $result = [
+            'table' => '',
+            'before' => [],
+            'after' => []
+        ];
+
+        // First try to match INSERT INTO ... SET syntax
+        if (preg_match('/INSERT\s+INTO\s+(`?)(\w+)\1\s+SET\s+(.*?)(?:;|\s*$)/is', $rawQuery, $matches)) {
+            $result['table'] = $matches[2];
+            $setClause = $matches[3];
+
+            // Parse the SET clause
+            $afterValues = $this->parseSetClause($setClause);
+            if (!empty($afterValues)) {
+                $result['after'] = $afterValues;
+                $result['before'] = array_fill_keys(array_keys($afterValues), '');
+                return $result;
             }
         }
-        return $afterValues;
+
+        // If SET syntax didn't match, try VALUES syntax
+        if (preg_match('/INSERT\s+INTO\s+(`?)(\w+)\1\s*\((.*?)\)\s*VALUES\s*\((.*)\)/is', $rawQuery, $matches)) {
+            $result['table'] = $matches[2];
+
+            // Parse columns
+            $columns = array_map(function($col) {
+                return trim($col, '`\'" ');
+            }, str_getcsv($matches[3]));
+
+            // Extract values while respecting nested structures
+            $valuesList = $this->parseValuesList($matches[4]);
+
+            if (count($columns) === count($valuesList)) {
+                $result['after'] = array_combine($columns, $valuesList);
+                $result['before'] = array_fill_keys($columns, '');
+                return $result;
+            }
+        }
+
+        // Return null if parsing failed
+        return $result;
+    }
+
+    /**
+     * Parse SET clause used in both UPDATE and INSERT ... SET statements
+     *
+     * @param string $setClause The SET portion of the query
+     * @return array Key-value pairs of column names and their values
+     */
+    private function parseSetClause($setClause)
+    {
+        $values = [];
+
+        // Split on commas, but keep track of quotes to avoid splitting within quoted strings
+        $parts = [];
+        $currentPart = '';
+        $inQuote = false;
+        $quoteChar = '';
+
+        // Normalize line endings and remove extra whitespace
+        $setClause = str_replace(["\r\n", "\r"], "\n", $setClause);
+
+        for ($i = 0; $i < strlen($setClause); $i++) {
+            $char = $setClause[$i];
+
+            // Handle quotes
+            if (($char === "'" || $char === '"') && ($i === 0 || $setClause[$i - 1] !== '\\')) {
+                if (!$inQuote) {
+                    $inQuote = true;
+                    $quoteChar = $char;
+                } elseif ($char === $quoteChar) {
+                    $inQuote = false;
+                }
+            }
+
+            // Split on commas only when not in quotes
+            if ($char === ',' && !$inQuote) {
+                $parts[] = trim($currentPart);
+                $currentPart = '';
+                continue;
+            }
+
+            $currentPart .= $char;
+        }
+
+        // Add the last part
+        if ($currentPart !== '') {
+            $parts[] = trim($currentPart);
+        }
+
+        // Process each part
+        foreach ($parts as $part) {
+            $part = trim($part);
+            if (preg_match('/^`?(\w+)`?\s*=\s*(.+)$/s', $part, $matches)) {
+                $column = trim($matches[1], '`\'" ');
+                $value = trim($matches[2]);
+
+                // Process the value
+                if (strtoupper($value) === 'NULL') {
+                    $values[$column] = null;
+                }
+                // Handle function calls like NOW()
+                elseif (preg_match('/^(\w+)\(\)$/i', $value)) {
+                    $values[$column] = $value;
+                }
+                // Handle quoted strings
+                elseif (($value[0] === "'" && substr($value, -1) === "'") ||
+                    ($value[0] === '"' && substr($value, -1) === '"')) {
+                    $values[$column] = substr($value, 1, -1);
+                }
+                // Handle other values
+                else {
+                    $values[$column] = $value;
+                }
+            }
+        }
+
+        return $values;
+    }
+
+    /**
+     * Parse a VALUES list while respecting nested structures and functions
+     *
+     * @param string $valueString The string containing the values
+     * @return array The parsed values
+     */
+    private function parseValuesList($valueString)
+    {
+        $values = [];
+        $currentValue = '';
+        $inQuote = false;
+        $quoteChar = '';
+        $parenthesesCount = 0;
+        $len = strlen($valueString);
+
+        for ($i = 0; $i < $len; $i++) {
+            $char = $valueString[$i];
+
+            // Handle quotes
+            if (($char === "'" || $char === '"') && $valueString[$i - 1] !== '\\') {
+                if (!$inQuote) {
+                    $inQuote = true;
+                    $quoteChar = $char;
+                } elseif ($char === $quoteChar) {
+                    $inQuote = false;
+                }
+            }
+
+            // Handle parentheses
+            if (!$inQuote) {
+                if ($char === '(') {
+                    $parenthesesCount++;
+                } elseif ($char === ')') {
+                    $parenthesesCount--;
+                }
+            }
+
+            // Handle value separation
+            if ($char === ',' && !$inQuote && $parenthesesCount === 0) {
+                $values[] = $this->processValue(trim($currentValue));
+                $currentValue = '';
+                continue;
+            }
+
+            $currentValue .= $char;
+        }
+
+        // Add the last value
+        if ($currentValue !== '') {
+            $values[] = $this->processValue(trim($currentValue));
+        }
+
+        return $values;
+    }
+
+    /**
+     * Process a single value from the VALUES clause
+     *
+     * @param string $value The value to process
+     * @return mixed The processed value
+     */
+    private function processValue($value)
+    {
+        // Handle NULL
+        if (strtoupper($value) === 'NULL') {
+            return null;
+        }
+
+        // Handle functions like NOW()
+        if (preg_match('/^(\w+)\(\)$/i', $value)) {
+            return $value;
+        }
+
+        // Remove surrounding quotes if present
+        if (($value[0] === "'" && substr($value, -1) === "'") ||
+            ($value[0] === '"' && substr($value, -1) === '"')) {
+            return substr($value, 1, -1);
+        }
+
+        return $value;
     }
 }
