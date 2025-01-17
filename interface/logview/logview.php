@@ -532,7 +532,7 @@ if (!empty($_GET)) {
                                                                     <div class="d-flex align-items-center">
                                                                         <?php echo $actionIcon; ?>
                                                                         <span class="font-weight-bold"><?php echo $summaryText; ?></span>
-                                                                        <?php if ($logData['type'] != 'select'): ?>
+                                                                        <?php if (!empty($logData['raw_query'])): ?>
                                                                             <button class="btn btn-sm btn-link ml-2" onclick="toggleDetails(this)">
                                                                                 <i class="fas fa-chevron-down"></i>
                                                                             </button>
