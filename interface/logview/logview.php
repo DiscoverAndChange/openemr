@@ -463,6 +463,10 @@ if (!empty($_GET)) {
                                                         if ($encryptVersion >= 5) {
                                                             $logData = json_decode($iter["comments"], true);
                                                             if (json_last_error() === JSON_ERROR_NONE) {
+
+                                                                if (!empty($logData['raw_query'])) {
+                                                                    $logData['raw_query'] = base64_decode($logData['raw_query']);
+                                                                }
                                                                 // Generate summary text based on action type
                                                                 $summaryText = '';
                                                                 $actionIcon = '';
@@ -518,7 +522,14 @@ if (!empty($_GET)) {
                                                                                 </tr>
                                                                                 </thead>
                                                                                 <tbody>
-                                                                                <?php foreach ($logData['after'] as $field => $newValue): ?>
+                                                                                <?php foreach ($logData['after'] as $field => $newValue) {
+//                                                                                    if (is_array($newValue) && isset($newValue['type']) && $newValue['type'] == 'binary') {
+//                                                                                        $newValue = \OpenEMR\Common\Uuid\UuidRegistry::uuidToString(base64_decode($newValue['value']));
+//                                                                                    }
+//                                                                                    if (is_array($logData['before'][$field]) && isset($logData['before'][$field]['type']) && $logData['before'][$field]['type'] == 'binary') {
+//                                                                                        $logData['before'][$field] = \OpenEMR\Common\Uuid\UuidRegistry::uuidToString(base64_decode($logData['before'][$field]['value']));
+//                                                                                    }
+                                                                                    ?>
                                                                                     <?php if ($logData['before'][$field] != $newValue): ?>
                                                                                         <tr>
                                                                                             <td><?php echo text($field); ?></td>
@@ -526,7 +537,7 @@ if (!empty($_GET)) {
                                                                                             <td><?php echo text($newValue); ?></td>
                                                                                         </tr>
                                                                                     <?php endif; ?>
-                                                                                <?php endforeach; ?>
+                                                                                <?php } ?>
                                                                                 </tbody>
                                                                             </table>
                                                                         </div>

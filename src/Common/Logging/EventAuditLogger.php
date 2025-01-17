@@ -559,7 +559,8 @@ MSG;
             'version' => 5,
             'type' => $querytype,
             'status' => $outcome ? 'success' : 'failure',
-            'raw_query' => $rawQuery
+            // in order to handle any binary data, we need to base64 encode the raw query
+            'raw_query' => base64_encode($rawQuery)
         ];
 
         // Handle UPDATE specific data
@@ -572,11 +573,11 @@ MSG;
 
                 $commentData['table'] = $table;
                 $commentData['where'] = $whereClause; // $this->applyBinds($whereClause, $binds);
-                $commentData['before'] = $previousValues;
+                $commentData['before'] = $this->processBinaryData($previousValues);
 
                 // Parse SET values for after state
-                $afterValues = $this->parseSetClause($setClause, $binds);
-                $commentData['after'] = $afterValues;
+                $afterValues = $this->parseSetClause($setClause);
+                $commentData['after'] = $this->processBinaryData($afterValues);
             }
         } elseif ($querytype == 'select') {
             // Parse SELECT statement
@@ -820,6 +821,9 @@ MSG;
         if (is_array($comments) || is_object($comments)) {
             // Already structured data, convert to JSON
             $comments = json_encode($comments);
+            if ($comments == false) {
+                $comments = 'Error: JSON encoding failed';
+            }
             $version = '5';
         }
         $encrypt = 'No';
@@ -1173,8 +1177,56 @@ MSG;
     }
 
     /**
-     * Parse INSERT queries to extract table, columns, and values for audit logging.
-     * Handles both INSERT INTO ... VALUES and INSERT INTO ... SET syntax.
+     * Process a record array to handle binary data
+     *
+     * @param array $record The record data to process
+     * @return array The processed record with binary data encoded
+     */
+    private function processBinaryData($record)
+    {
+        if (empty($record) || !is_array($record)) {
+            return $record;
+        }
+
+        // List of known binary columns
+        $binaryColumns = ['uuid', 'drive_uuid'];
+
+        foreach ($record as $key => $value) {
+            // Skip null values
+            if (is_null($value)) {
+                continue;
+            }
+
+            // Check if this is a known binary column or appears to contain binary data
+            if (in_array($key, $binaryColumns) || $this->isBinary($value)) {
+                $record[$key] = [
+                    'type' => 'binary',
+                    'value' => base64_encode($value)
+                ];
+            }
+        }
+
+        return $record;
+    }
+
+    /**
+     * Check if a string contains binary data
+     *
+     * @param string $str The string to check
+     * @return bool True if the string contains binary data
+     */
+    private function isBinary($str)
+    {
+        if (!is_string($str)) {
+            return false;
+        }
+        // Check if the string contains any non-printable characters except for whitespace
+        return preg_match('/[^\PC\s]/u', $str) !== 0;
+    }
+
+    /**
+     * Parse REPLACE/INSERT queries to extract table, columns, and values for audit logging.
+     * Handles SET syntax and VALUES syntax for both REPLACE INTO and INSERT INTO.
      *
      * @param string $rawQuery The complete SQL query with binds applied
      * @return array|null Returns array with table, before and after states, or null if parsing fails
@@ -1184,25 +1236,39 @@ MSG;
         $result = [
             'table' => '',
             'before' => [],
-            'after' => []
+            'after' => [],
+            'isReplace' => false
         ];
 
-        // First try to match INSERT INTO ... SET syntax
-        if (preg_match('/INSERT\s+INTO\s+(`?)(\w+)\1\s+SET\s+(.*?)(?:;|\s*$)/is', $rawQuery, $matches)) {
+        // Determine if this is a REPLACE query
+        $isReplace = stripos(trim($rawQuery), 'REPLACE INTO') === 0;
+        $result['isReplace'] = $isReplace;
+
+        // First try to match SET syntax
+        $pattern = '/(?:INSERT|REPLACE)\s+INTO\s+(`?)(\w+)\1\s+SET\s+(.*?)(?:;|\s*$)/is';
+        if (preg_match($pattern, $rawQuery, $matches)) {
             $result['table'] = $matches[2];
             $setClause = $matches[3];
 
             // Parse the SET clause
             $afterValues = $this->parseSetClause($setClause);
             if (!empty($afterValues)) {
-                $result['after'] = $afterValues;
-                $result['before'] = array_fill_keys(array_keys($afterValues), '');
+                $result['after'] = $this->processBinaryData($afterValues);
+
+                // If this is a REPLACE query and we have a primary key, try to get the existing record
+                if ($isReplace && isset($afterValues['id'])) {
+                    $beforeValues = $this->getPreviousRecord($result['table'], $afterValues['id']);
+                    $result['before'] = $this->processBinaryData($beforeValues ?: array_fill_keys(array_keys($afterValues), ''));
+                } else {
+                    $result['before'] = array_fill_keys(array_keys($afterValues), '');
+                }
                 return $result;
             }
         }
 
         // If SET syntax didn't match, try VALUES syntax
-        if (preg_match('/INSERT\s+INTO\s+(`?)(\w+)\1\s*\((.*?)\)\s*VALUES\s*\((.*)\)/is', $rawQuery, $matches)) {
+        $pattern = '/(?:INSERT|REPLACE)\s+INTO\s+(`?)(\w+)\1\s*\((.*?)\)\s*VALUES\s*\((.*)\)/is';
+        if (preg_match($pattern, $rawQuery, $matches)) {
             $result['table'] = $matches[2];
 
             // Parse columns
@@ -1214,13 +1280,26 @@ MSG;
             $valuesList = $this->parseValuesList($matches[4]);
 
             if (count($columns) === count($valuesList)) {
-                $result['after'] = array_combine($columns, $valuesList);
-                $result['before'] = array_fill_keys($columns, '');
+                $afterValues = array_combine($columns, $valuesList);
+                $result['after'] = $this->processBinaryData($afterValues);
+
+                // If this is a REPLACE query and we have a primary key column, try to get the existing record
+                if ($isReplace) {
+                    $idKey = array_search('id', $columns);
+                    if ($idKey !== false && isset($valuesList[$idKey])) {
+                        $beforeValues = $this->getPreviousRecord($result['table'], $valuesList[$idKey]);
+                        $result['before'] = $this->processBinaryData($beforeValues ?: array_fill_keys($columns, ''));
+                    } else {
+                        $result['before'] = array_fill_keys($columns, '');
+                    }
+                } else {
+                    $result['before'] = array_fill_keys($columns, '');
+                }
                 return $result;
             }
         }
 
-        // Return null if parsing failed
+        // Return default if parsing failed
         return $result;
     }
 
