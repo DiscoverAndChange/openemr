@@ -507,38 +507,23 @@ $ires = sqlStatement("SELECT id, type, title, begdate FROM lists WHERE " .
                         <div class="col-sm">
                             <div class="form-group">
                                 <label for='provider_id' class="text-right"><?php echo xlt('Encounter Provider'); ?>:</label>
-                                <select name='provider_id' id='provider_id' class='form-control' onChange="newUserSelected()">
-                                    <?php
-                                    if ($viewmode) {
-                                        $provider_id = $result['provider_id'];
+                                <?php
+                                $userService = new UserService();
+                                $activeUser = $userService->getUserByUsername($_SESSION['authUser']);
+                                $flag_it = '';
+                                if ($activeUser['authorized'] != 1) {
+                                    if ($activeUser['id'] === (int)($result['provider_id'] ?? null)) {
+                                        $flag_it = " (" . xl("Non Provider") . ")";
                                     }
-                                    $userService = new UserService();
-                                    $users = $userService->getActiveUsers();
-                                    foreach ($users as $activeUser) {
-                                        $p_id = (int)$activeUser['id'];
-                                        // Check for the case where an encounter is created by non-auth user
-                                        // but has permissions to create/edit encounter.
-                                        $flag_it = "";
-                                        if ($activeUser['authorized'] != 1) {
-                                            if ($p_id === (int)($result['provider_id'] ?? null)) {
-                                                $flag_it = " (" . xlt("Non Provider") . ")";
-                                            } else {
-                                                continue;
-                                            }
-                                        }
-                                        echo "<option value='" . attr($p_id) . "'";
-                                        if ((int)$provider_id === $p_id) {
-                                            echo "selected";
-                                        }
-                                        echo ">" . text($activeUser['lname']) . ', ' .
-                                            ($activeUser['suffix'] ? text($activeUser['suffix']) . ', ' : '') .
-                                            ($activeUser['valedictory'] ? text($activeUser['valedictory']) . ', ' : '') .
-                                            text($activeUser['fname']) .
-                                            ($activeUser['mname'] ? ', ' . text($activeUser['mname']) : ' ') .
-                                            $flag_it . "</option>\n";
-                                    }
-                                    ?>
-                                </select>
+                                }
+                                $providerNameValue = $activeUser['lname'] . ', '
+                                            . ($activeUser['suffix'] ? $activeUser['suffix'] . ', ' : '')
+                                            . ($activeUser['valedictory'] ? $activeUser['valedictory'] . ', ' : '')
+                                            . $activeUser['fname']
+                                            . ($activeUser['mname'] ? ', ' . $activeUser['mname'] : ' ')
+                                            . $flag_it;
+                                ?>
+                                <input type="textbox" disabled="disabled" readonly="readonly" value="<?php echo attr($providerNameValue); ?>" />
                             </div>
                         </div>
                         <div class="col-sm <?php displayOption('enc_enable_referring_provider');?>">
