@@ -30,10 +30,36 @@ jobs:
       - name: Report PHP Version
         run: php -v
 
+      - name: Get Composer Cache Directory
+        id: composer-cache
+        run: |
+            echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-composer-
+
       - name: Install npm package
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+
+      - name: Get npm cache directory
+        # this must run only after setup-node
+        id: npm-cache-dir
+        shell: bash
+        run: echo "dir=$(npm config get cache)" >> ${GITHUB_OUTPUT}
+
+      - uses: actions/cache@v4
+        id: npm-cache # use this to check for `cache-hit` ==> if: steps.npm-cache.outputs.cache-hit != 'true'
+        with:
+          path: ${{ steps.npm-cache-dir.outputs.dir }}
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
 
       - name: Main build
         run: |
