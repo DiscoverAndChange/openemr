@@ -33,15 +33,18 @@ composer_github_auth() {
 # Technically dc is a calculator command in linux,
 # but it's rarely used in the same context as docker compose.
 dc() {
-    docker compose "$@"
+    docker compose --project-directory "ci/${DOCKER_DIR}" "$@"
 }
 
 dce() {
-    dc exec --workdir "${OPENEMR_DIR}" openemr "$@"
+    dc run --entrypoint sh \
+           --interactive \
+           --rm \
+           --workdir "${OPENEMR_DIR}" openemr "$@"
 }
 
 dockers_env_start() {
-    dc --project-directory "ci/${DOCKER_DIR}" up --detach
+    dc up --detach
 }
 
 main_build() {
@@ -67,44 +70,44 @@ install_configure() {
     sudo chmod 666 sites/default/sqlconf.php
     sudo chmod -R 777 sites/default/documents
     sed -e 's@^exit;@ @' < contrib/util/installScripts/InstallerAuto.php > contrib/util/installScripts/InstallerAutoTemp.php
-    dce sh -c 'php -f ./contrib/util/installScripts/InstallerAutoTemp.php rootpass=root server=mysql loginhost=%'
-    dce sh -c 'rm -f ./contrib/util/installScripts/InstallerAutoTemp.php'
-    dce sh -c 'mysql -u openemr --password="openemr" -h mysql -e "INSERT INTO product_registration (opt_out) VALUES (1)" openemr'
-    dce sh -c 'mysql -u openemr --password="openemr" -h mysql -e "UPDATE globals SET gl_value = 1 WHERE gl_name = \"rest_api\"" openemr'
-    dce sh -c 'mysql -u openemr --password="openemr" -h mysql -e "UPDATE globals SET gl_value = 1 WHERE gl_name = \"rest_fhir_api\"" openemr'
-    dce sh -c 'mysql -u openemr --password="openemr" -h mysql -e "UPDATE globals SET gl_value = 1 WHERE gl_name = \"rest_portal_api\"" openemr'
-    dce sh -c 'mysql -u openemr --password="openemr" -h mysql -e "UPDATE globals SET gl_value = 3 WHERE gl_name = \"oauth_password_grant\"" openemr'
-    dce sh -c 'mysql -u openemr --password="openemr" -h mysql -e "UPDATE globals SET gl_value = 1 WHERE gl_name = \"rest_system_scopes_api\"" openemr'
+    run -c 'php -f ./contrib/util/installScripts/InstallerAutoTemp.php rootpass=root server=mysql loginhost=%'
+    run -c 'rm -f ./contrib/util/installScripts/InstallerAutoTemp.php'
+    run -c 'mysql -u openemr --password="openemr" -h mysql -e "INSERT INTO product_registration (opt_out) VALUES (1)" openemr'
+    run -c 'mysql -u openemr --password="openemr" -h mysql -e "UPDATE globals SET gl_value = 1 WHERE gl_name = \"rest_api\"" openemr'
+    run -c 'mysql -u openemr --password="openemr" -h mysql -e "UPDATE globals SET gl_value = 1 WHERE gl_name = \"rest_fhir_api\"" openemr'
+    run -c 'mysql -u openemr --password="openemr" -h mysql -e "UPDATE globals SET gl_value = 1 WHERE gl_name = \"rest_portal_api\"" openemr'
+    run -c 'mysql -u openemr --password="openemr" -h mysql -e "UPDATE globals SET gl_value = 3 WHERE gl_name = \"oauth_password_grant\"" openemr'
+    run -c 'mysql -u openemr --password="openemr" -h mysql -e "UPDATE globals SET gl_value = 1 WHERE gl_name = \"rest_system_scopes_api\"" openemr'
 }
 
 build_test_unit() {
-    dce sh -c 'php ./vendor/bin/phpunit --testsuite unit --testdox'
+    run -c 'php ./vendor/bin/phpunit --testsuite unit --testdox'
 }
 
 build_test_e2e() {
-    dce sh -c "${CHROMIUM_INSTALL}; export PANTHER_NO_SANDBOX=1; export PANTHER_CHROME_ARGUMENTS='--disable-dev-shm-usage'; php ./vendor/bin/phpunit --testsuite e2e --testdox"
+    run -c "${CHROMIUM_INSTALL}; export PANTHER_NO_SANDBOX=1; export PANTHER_CHROME_ARGUMENTS='--disable-dev-shm-usage'; php ./vendor/bin/phpunit --testsuite e2e --testdox"
 }
 
 build_test_api() {
-    dce sh -c "php ./vendor/bin/phpunit --testsuite api --testdox"
+    run -c "php ./vendor/bin/phpunit --testsuite api --testdox"
 }
 
 build_test_fixtures() {
-    dce sh -c "php ./vendor/bin/phpunit --testsuite fixtures --testdox"
+    run -c "php ./vendor/bin/phpunit --testsuite fixtures --testdox"
 }
 
 build_test_services() {
-    dce sh -c "php ./vendor/bin/phpunit --testsuite services --testdox"
+    run -c "php ./vendor/bin/phpunit --testsuite services --testdox"
 }
 
 build_test_validators() {
-    dce sh -c "php ./vendor/bin/phpunit --testsuite validators --testdox"
+    run -c "php ./vendor/bin/phpunit --testsuite validators --testdox"
 }
 
 build_test_controllers() {
-    dce sh -c "php ./vendor/bin/phpunit --testsuite controllers --testdox"
+    run -c "php ./vendor/bin/phpunit --testsuite controllers --testdox"
 }
 
 build_test_common() {
-    dce sh -c "php ./vendor/bin/phpunit --testsuite common --testdox"
+    run -c "php ./vendor/bin/phpunit --testsuite common --testdox"
 }
