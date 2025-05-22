@@ -67,44 +67,48 @@ install_configure() {
     sudo chmod 666 sites/default/sqlconf.php
     sudo chmod -R 777 sites/default/documents
     sed -e 's@^exit;@ @' < contrib/util/installScripts/InstallerAuto.php > contrib/util/installScripts/InstallerAutoTemp.php
-    _exec -c 'php -f ./contrib/util/installScripts/InstallerAutoTemp.php rootpass=root server=mysql loginhost=%'
-    _exec -c 'rm -f ./contrib/util/installScripts/InstallerAutoTemp.php'
-    _exec -c 'mysql -u openemr --password="openemr" -h mysql -e "INSERT INTO product_registration (opt_out) VALUES (1)" openemr'
-    _exec -c 'mysql -u openemr --password="openemr" -h mysql -e "UPDATE globals SET gl_value = 1 WHERE gl_name = \"rest_api\"" openemr'
-    _exec -c 'mysql -u openemr --password="openemr" -h mysql -e "UPDATE globals SET gl_value = 1 WHERE gl_name = \"rest_fhir_api\"" openemr'
-    _exec -c 'mysql -u openemr --password="openemr" -h mysql -e "UPDATE globals SET gl_value = 1 WHERE gl_name = \"rest_portal_api\"" openemr'
-    _exec -c 'mysql -u openemr --password="openemr" -h mysql -e "UPDATE globals SET gl_value = 3 WHERE gl_name = \"oauth_password_grant\"" openemr'
-    _exec -c 'mysql -u openemr --password="openemr" -h mysql -e "UPDATE globals SET gl_value = 1 WHERE gl_name = \"rest_system_scopes_api\"" openemr'
-}
-
-build_test_unit() {
-    _exec -c 'php ./vendor/bin/phpunit --testsuite unit --testdox'
+    _exec php -f ./contrib/util/installScripts/InstallerAutoTemp.php rootpass=root server=mysql loginhost=%
+    _exec rm -f ./contrib/util/installScripts/InstallerAutoTemp.php
+    _exec mysql -u openemr --password="openemr" -h mysql -e 'INSERT INTO product_registration (opt_out) VALUES (1)' openemr
+    _exec mysql -u openemr --password="openemr" -h mysql -e 'UPDATE globals SET gl_value = 1 WHERE gl_name = "rest_api"' openemr
+    _exec mysql -u openemr --password="openemr" -h mysql -e 'UPDATE globals SET gl_value = 1 WHERE gl_name = "rest_fhir_api"' openemr
+    _exec mysql -u openemr --password="openemr" -h mysql -e 'UPDATE globals SET gl_value = 1 WHERE gl_name = "rest_portal_api"' openemr
+    _exec mysql -u openemr --password="openemr" -h mysql -e 'UPDATE globals SET gl_value = 3 WHERE gl_name = "oauth_password_grant"' openemr
+    _exec mysql -u openemr --password="openemr" -h mysql -e 'UPDATE globals SET gl_value = 1 WHERE gl_name = "rest_system_scopes_api"' openemr
 }
 
 build_test_e2e() {
-    _exec -c "${CHROMIUM_INSTALL}; export PANTHER_NO_SANDBOX=1; export PANTHER_CHROME_ARGUMENTS='--disable-dev-shm-usage'; php ./vendor/bin/phpunit --testsuite e2e --testdox"
+    _exec sh -c "${CHROMIUM_INSTALL}; export PANTHER_NO_SANDBOX=1; export PANTHER_CHROME_ARGUMENTS='--disable-dev-shm-usage'; php ./vendor/bin/phpunit --testsuite e2e --testdox"
+}
+
+phpunit() {
+    _exec php ./vendor/bin/phpunit --testdox "$@"
+}
+
+build_test_unit() {
+    phpunit --testsuite unit
 }
 
 build_test_api() {
-    _exec -c "php ./vendor/bin/phpunit --testsuite api --testdox"
+    phpunit --testsuite api
 }
 
 build_test_fixtures() {
-    _exec -c "php ./vendor/bin/phpunit --testsuite fixtures --testdox"
+    phpunit --testsuite fixtures
 }
 
 build_test_services() {
-    _exec -c "php ./vendor/bin/phpunit --testsuite services --testdox"
+    phpunit --testsuite services
 }
 
 build_test_validators() {
-    _exec -c "php ./vendor/bin/phpunit --testsuite validators --testdox"
+    phpunit --testsuite validators
 }
 
 build_test_controllers() {
-    _exec -c "php ./vendor/bin/phpunit --testsuite controllers --testdox"
+    phpunit --testsuite controllers
 }
 
 build_test_common() {
-    _exec -c "php ./vendor/bin/phpunit --testsuite common --testdox"
+    phpunit --testsuite common
 }
