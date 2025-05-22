@@ -100,7 +100,7 @@ install_configure() {
     _exec mysql -u openemr --password="openemr" -h mysql -e 'UPDATE globals SET gl_value = 1 WHERE gl_name = "rest_portal_api"' openemr
     _exec mysql -u openemr --password="openemr" -h mysql -e 'UPDATE globals SET gl_value = 3 WHERE gl_name = "oauth_password_grant"' openemr
     _exec mysql -u openemr --password="openemr" -h mysql -e 'UPDATE globals SET gl_value = 1 WHERE gl_name = "rest_system_scopes_api"' openemr
-    _exec sh -c 'XDEBUG_IDE_KEY=unimportant XDEBUG_ON=yes ./xdebug.sh'
+    _exec sh -c 'XDEBUG_IDE_KEY=unimportant XDEBUG_ON=yes ../xdebug.sh'
 }
 
 build_test_e2e() {
