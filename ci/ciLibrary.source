@@ -78,11 +78,11 @@ install_configure() {
 }
 
 build_test_e2e() {
-    _exec sh -c "${CHROMIUM_INSTALL}; export PANTHER_NO_SANDBOX=1; export PANTHER_CHROME_ARGUMENTS='--disable-dev-shm-usage'; php ./vendor/bin/phpunit --path-coverage --coverage-html htmlcov --coverage-text --testsuite e2e --testdox"
+    _exec sh -c "${CHROMIUM_INSTALL}; export PANTHER_NO_SANDBOX=1; export PANTHER_CHROME_ARGUMENTS='--disable-dev-shm-usage'; php ./vendor/bin/phpunit --coverage-html htmlcov --coverage-text --testsuite e2e --testdox"
 }
 
 phpunit() {
-    _exec php ./vendor/bin/phpunit --path-coverage --coverage-html htmlcov --coverage-text --testdox "$@"
+    _exec php ./vendor/bin/phpunit --coverage-html htmlcov --coverage-text --testdox "$@"
 }
 
 build_test_unit() {
