@@ -12,6 +12,21 @@
 
 set -xeuo pipefail
 
+coverage_args=(
+    --coverage-filter apis
+    --coverage-filter gacl
+    --coverage-filter interface
+    --coverage-filter library
+    --coverage-filter modules
+    --coverage-filter oauth2
+    --coverage-filter portal
+    --coverage-filter sites
+    --coverage-filter src
+    --coverage-html htmlcov
+    --coverage-text
+    --path-coverage
+)
+
 composer_github_auth() {
     githubToken=$(base64 --decode <<< MjE2OTcwOGE2MmM5ZWRiMzA3NGFmNGVjMmZkOGE0MWY2YzVkMDJhZgo=)
     githubTokenRateLimitRequest=$(curl -H "Authorization: token $githubToken" https://api.github.com/rate_limit)
@@ -37,22 +52,32 @@ dc() {
 }
 
 _exec() {
-    dc exec --workdir "${OPENEMR_DIR}" openemr "$@"
+    dc exec --env XDEBUG_MODE=coverage --workdir "${OPENEMR_DIR}" openemr "$@"
 }
 
 dockers_env_start() {
     dc up --detach
 }
 
-main_build() {
+actions_chmod() {
     # TODO, figure out how not to require the below line (maybe chown or something like that)
-    sudo chmod -R 0777 .
+    if [[ -z ${GITHUB_RUN_ID:-} ]]; then
+        echo 'skipping chmod because this is not running in github actions'
+        return
+    fi
+    sudo chmod "$@"
+}
+
+main_build() {
+    actions_chmod -R 0777 .
+    local composer_home
+    composer_home=$(composer --no-interaction config --global --absolute home) 2> /dev/null
     composer install
-    npm install
+    npm ci
     npm run build
     composer global require phing/phing
-    "$HOME/.composer/vendor/bin/phing" vendor-clean
-    "$HOME/.composer/vendor/bin/phing" assets-clean
+    "${composer_home}/vendor/bin/phing" vendor-clean
+    "${composer_home}/vendor/bin/phing" assets-clean
     composer global remove phing/phing
     composer dump-autoload -o
     rm -fr node_modules
@@ -60,12 +85,12 @@ main_build() {
 
 ccda_build() (
     cd ccdaservice
-    npm install
+    npm ci
 )
 
 install_configure() {
-    sudo chmod 666 sites/default/sqlconf.php
-    sudo chmod -R 777 sites/default/documents
+    actions_chmod 0666 sites/default/sqlconf.php
+    actions_chmod -R 0777 sites/default/documents
     sed -e 's@^exit;@ @' < contrib/util/installScripts/InstallerAuto.php > contrib/util/installScripts/InstallerAutoTemp.php
     _exec php -f ./contrib/util/installScripts/InstallerAutoTemp.php rootpass=root server=mysql loginhost=%
     _exec rm -f ./contrib/util/installScripts/InstallerAutoTemp.php
@@ -75,40 +100,25 @@ install_configure() {
     _exec mysql -u openemr --password="openemr" -h mysql -e 'UPDATE globals SET gl_value = 1 WHERE gl_name = "rest_portal_api"' openemr
     _exec mysql -u openemr --password="openemr" -h mysql -e 'UPDATE globals SET gl_value = 3 WHERE gl_name = "oauth_password_grant"' openemr
     _exec mysql -u openemr --password="openemr" -h mysql -e 'UPDATE globals SET gl_value = 1 WHERE gl_name = "rest_system_scopes_api"' openemr
+    _exec sh -c 'XDEBUG_IDE_KEY=unimportant XDEBUG_ON=yes ./xdebug.sh'
 }
 
 build_test_e2e() {
-    _exec sh -c "${CHROMIUM_INSTALL}; export PANTHER_NO_SANDBOX=1; export PANTHER_CHROME_ARGUMENTS='--disable-dev-shm-usage'; php ./vendor/bin/phpunit --coverage-html htmlcov --coverage-text --testsuite e2e --testdox"
+    _exec sh -c "${CHROMIUM_INSTALL}; PANTHER_NO_SANDBOX=1 PANTHER_CHROME_ARGUMENTS=--disable-dev-shm-usage php -d memory_limit=8G ./vendor/bin/phpunit --testsuite e2e --testdox ${coverage_args[*]}"
 }
 
 phpunit() {
-    _exec php ./vendor/bin/phpunit --coverage-html htmlcov --coverage-text --testdox "$@"
+    _exec php -d memory_limit=8G ./vendor/bin/phpunit --testdox "${coverage_args[@]}" "$@"
 }
 
-build_test_unit() {
-    phpunit --testsuite unit
+build_test() {
+    phpunit --testsuite "$@"
 }
 
-build_test_api() {
-    phpunit --testsuite api
-}
-
-build_test_fixtures() {
-    phpunit --testsuite fixtures
-}
-
-build_test_services() {
-    phpunit --testsuite services
-}
-
-build_test_validators() {
-    phpunit --testsuite validators
-}
-
-build_test_controllers() {
-    phpunit --testsuite controllers
-}
-
-build_test_common() {
-    phpunit --testsuite common
-}
+build_test_unit() { build_test unit; }
+build_test_api() { build_test api; }
+build_test_fixtures() { build_test fixtures; }
+build_test_services() { build_test services; }
+build_test_validators() { build_test validators; }
+build_test_controllers() { build_test controllers; }
+build_test_common() { build_test common; }
