@@ -36,15 +36,12 @@ dc() {
     docker compose --project-directory "ci/${DOCKER_DIR}" "$@"
 }
 
-run() {
-    dc run --entrypoint sh \
-           --interactive \
-           --rm \
-           --workdir "${OPENEMR_DIR}" openemr "$@"
+_exec() {
+    dc exec --workdir "${OPENEMR_DIR}" openemr "$@"
 }
 
 dockers_env_start() {
-    dc create
+    dc up --detach
 }
 
 main_build() {
@@ -70,44 +67,44 @@ install_configure() {
     sudo chmod 666 sites/default/sqlconf.php
     sudo chmod -R 777 sites/default/documents
     sed -e 's@^exit;@ @' < contrib/util/installScripts/InstallerAuto.php > contrib/util/installScripts/InstallerAutoTemp.php
-    run -c 'php -f ./contrib/util/installScripts/InstallerAutoTemp.php rootpass=root server=mysql loginhost=%'
-    run -c 'rm -f ./contrib/util/installScripts/InstallerAutoTemp.php'
-    run -c 'mysql -u openemr --password="openemr" -h mysql -e "INSERT INTO product_registration (opt_out) VALUES (1)" openemr'
-    run -c 'mysql -u openemr --password="openemr" -h mysql -e "UPDATE globals SET gl_value = 1 WHERE gl_name = \"rest_api\"" openemr'
-    run -c 'mysql -u openemr --password="openemr" -h mysql -e "UPDATE globals SET gl_value = 1 WHERE gl_name = \"rest_fhir_api\"" openemr'
-    run -c 'mysql -u openemr --password="openemr" -h mysql -e "UPDATE globals SET gl_value = 1 WHERE gl_name = \"rest_portal_api\"" openemr'
-    run -c 'mysql -u openemr --password="openemr" -h mysql -e "UPDATE globals SET gl_value = 3 WHERE gl_name = \"oauth_password_grant\"" openemr'
-    run -c 'mysql -u openemr --password="openemr" -h mysql -e "UPDATE globals SET gl_value = 1 WHERE gl_name = \"rest_system_scopes_api\"" openemr'
+    _exec -c 'php -f ./contrib/util/installScripts/InstallerAutoTemp.php rootpass=root server=mysql loginhost=%'
+    _exec -c 'rm -f ./contrib/util/installScripts/InstallerAutoTemp.php'
+    _exec -c 'mysql -u openemr --password="openemr" -h mysql -e "INSERT INTO product_registration (opt_out) VALUES (1)" openemr'
+    _exec -c 'mysql -u openemr --password="openemr" -h mysql -e "UPDATE globals SET gl_value = 1 WHERE gl_name = \"rest_api\"" openemr'
+    _exec -c 'mysql -u openemr --password="openemr" -h mysql -e "UPDATE globals SET gl_value = 1 WHERE gl_name = \"rest_fhir_api\"" openemr'
+    _exec -c 'mysql -u openemr --password="openemr" -h mysql -e "UPDATE globals SET gl_value = 1 WHERE gl_name = \"rest_portal_api\"" openemr'
+    _exec -c 'mysql -u openemr --password="openemr" -h mysql -e "UPDATE globals SET gl_value = 3 WHERE gl_name = \"oauth_password_grant\"" openemr'
+    _exec -c 'mysql -u openemr --password="openemr" -h mysql -e "UPDATE globals SET gl_value = 1 WHERE gl_name = \"rest_system_scopes_api\"" openemr'
 }
 
 build_test_unit() {
-    run -c 'php ./vendor/bin/phpunit --testsuite unit --testdox'
+    _exec -c 'php ./vendor/bin/phpunit --testsuite unit --testdox'
 }
 
 build_test_e2e() {
-    run -c "${CHROMIUM_INSTALL}; export PANTHER_NO_SANDBOX=1; export PANTHER_CHROME_ARGUMENTS='--disable-dev-shm-usage'; php ./vendor/bin/phpunit --testsuite e2e --testdox"
+    _exec -c "${CHROMIUM_INSTALL}; export PANTHER_NO_SANDBOX=1; export PANTHER_CHROME_ARGUMENTS='--disable-dev-shm-usage'; php ./vendor/bin/phpunit --testsuite e2e --testdox"
 }
 
 build_test_api() {
-    run -c "php ./vendor/bin/phpunit --testsuite api --testdox"
+    _exec -c "php ./vendor/bin/phpunit --testsuite api --testdox"
 }
 
 build_test_fixtures() {
-    run -c "php ./vendor/bin/phpunit --testsuite fixtures --testdox"
+    _exec -c "php ./vendor/bin/phpunit --testsuite fixtures --testdox"
 }
 
 build_test_services() {
-    run -c "php ./vendor/bin/phpunit --testsuite services --testdox"
+    _exec -c "php ./vendor/bin/phpunit --testsuite services --testdox"
 }
 
 build_test_validators() {
-    run -c "php ./vendor/bin/phpunit --testsuite validators --testdox"
+    _exec -c "php ./vendor/bin/phpunit --testsuite validators --testdox"
 }
 
 build_test_controllers() {
-    run -c "php ./vendor/bin/phpunit --testsuite controllers --testdox"
+    _exec -c "php ./vendor/bin/phpunit --testsuite controllers --testdox"
 }
 
 build_test_common() {
-    run -c "php ./vendor/bin/phpunit --testsuite common --testdox"
+    _exec -c "php ./vendor/bin/phpunit --testsuite common --testdox"
 }
