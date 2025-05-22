@@ -36,7 +36,7 @@ dc() {
     docker compose --project-directory "ci/${DOCKER_DIR}" "$@"
 }
 
-dce() {
+run() {
     dc run --entrypoint sh \
            --interactive \
            --rm \
@@ -44,7 +44,7 @@ dce() {
 }
 
 dockers_env_start() {
-    dc up --detach
+    dc create
 }
 
 main_build() {
