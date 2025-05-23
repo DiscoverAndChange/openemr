@@ -107,23 +107,37 @@ jobs:
         run: |
           . ci/ciLibrary.source
           merge_coverage
+        if: ${{ success() || failure() }}
+
+      - name: Check if coverage files exist
+        if: ${{ always() }}
+        id: check-files
+        run: |
+          echo "clover_exists=$(test -f coverage.clover.xml && echo true || echo false)" >> $GITHUB_OUTPUT
+          echo "cobertura_exists=$(test -f coverage.cobertura.xml && echo true || echo false)" >> $GITHUB_OUTPUT
+          echo "crap4j_exists=$(test -f coverage.crap4j.xml && echo true || echo false)" >> $GITHUB_OUTPUT
+          echo "htmlcov_exists=$(test -d ./htmlcov && echo true || echo false)" >> $GITHUB_OUTPUT
 
       - uses: actions/upload-artifact@v4
+        if: ${{ always() && steps.check-files.outputs.clover_exists == 'true' }}
         with:
-            name: coverage.clover.xml
-            path: coverage.clover.xml
+          name: coverage.clover.xml
+          path: coverage.clover.xml
 
       - uses: actions/upload-artifact@v4
+        if: ${{ always() && steps.check-files.outputs.cobertura_exists == 'true' }}
         with:
-            name: coverage.cobertura.xml
-            path: coverage.cobertura.xml
+          name: coverage.cobertura.xml
+          path: coverage.cobertura.xml
 
       - uses: actions/upload-artifact@v4
+        if: ${{ always() && steps.check-files.outputs.crap4j_exists == 'true' }}
         with:
-            name: coverage.crap4j.xml
-            path: coverage.crap4j.xml
+          name: coverage.crap4j.xml
+          path: coverage.crap4j.xml
 
       - uses: actions/upload-artifact@v4
+        if: ${{ always() && steps.check-files.outputs.htmlcov_exists == 'true' }}
         with:
-            name: htmlcov
-            path: ./htmlcov/
+          name: htmlcov
+          path: ./htmlcov/
