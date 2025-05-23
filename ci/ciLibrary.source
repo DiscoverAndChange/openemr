@@ -22,7 +22,6 @@ coverage_args=(
     --coverage-filter portal
     --coverage-filter sites
     --coverage-filter src
-    --coverage-html htmlcov
     --coverage-text
     --path-coverage
 )
@@ -88,6 +87,18 @@ ccda_build() (
     npm ci
 )
 
+configure_coverage() {
+    _exec sh -c '
+      XDEBUG_IDE_KEY=unimportant XDEBUG_ON=yes ../xdebug.sh
+      mkdir -p ./coverage
+      curl -sSLO https://phar.phpunit.de/phpcov-11.0.0.phar
+    '
+}
+
+phpcov() {
+    _exec php -d memory_limit=8G phpcov-11.0.0.phar "$@"
+}
+
 install_configure() {
     actions_chmod 0666 sites/default/sqlconf.php
     actions_chmod -R 0777 sites/default/documents
@@ -100,11 +111,16 @@ install_configure() {
     _exec mysql -u openemr --password="openemr" -h mysql -e 'UPDATE globals SET gl_value = 1 WHERE gl_name = "rest_portal_api"' openemr
     _exec mysql -u openemr --password="openemr" -h mysql -e 'UPDATE globals SET gl_value = 3 WHERE gl_name = "oauth_password_grant"' openemr
     _exec mysql -u openemr --password="openemr" -h mysql -e 'UPDATE globals SET gl_value = 1 WHERE gl_name = "rest_system_scopes_api"' openemr
-    _exec sh -c 'XDEBUG_IDE_KEY=unimportant XDEBUG_ON=yes ../xdebug.sh'
 }
 
 build_test_e2e() {
-    _exec sh -c "${CHROMIUM_INSTALL}; PANTHER_NO_SANDBOX=1 PANTHER_CHROME_ARGUMENTS=--disable-dev-shm-usage php -d memory_limit=8G ./vendor/bin/phpunit --testsuite e2e --testdox ${coverage_args[*]}"
+    _exec sh -c "${CHROMIUM_INSTALL};
+                 export PANTHER_NO_SANDBOX=1;
+                 export PANTHER_CHROME_ARGUMENTS=--disable-dev-shm-usage;
+                 php -d memory_limit=8G ./vendor/bin/phpunit --testsuite e2e \
+                                                             --testdox \
+                                                             --coverage-php ./coverage/coverage.e2e.cov \
+                                                             ${coverage_args[*]}"
 }
 
 phpunit() {
@@ -112,7 +128,8 @@ phpunit() {
 }
 
 build_test() {
-    phpunit --testsuite "$@"
+    local testsuite="$1"
+    phpunit --coverage-php "./coverage/coverage.${testsuite}.cov" --testsuite "$testsuite"
 }
 
 build_test_unit() { build_test unit; }
@@ -122,3 +139,11 @@ build_test_services() { build_test services; }
 build_test_validators() { build_test validators; }
 build_test_controllers() { build_test controllers; }
 build_test_common() { build_test common; }
+
+merge_coverage() {
+    phpcov merge coverage --clover coverage.clover.xml \
+                          --cobertura coverage.cobertura.xml \
+                          --crap4j coverage.crap4j.xml \
+                          --html htmlcov coverage \
+                          --text /dev/stdout
+}

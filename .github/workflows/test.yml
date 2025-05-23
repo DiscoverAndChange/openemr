@@ -31,72 +31,97 @@ jobs:
 
       - name: Main build
         run: |
-          source ci/ciLibrary.source
+          . ci/ciLibrary.source
           composer_github_auth
           main_build
 
       - name: CCDA build
         run: |
-          source ci/ciLibrary.source
+          . ci/ciLibrary.source
           ccda_build
 
       - name: Dockers environment start
         run: |
-          source ci/ciLibrary.source
+          . ci/ciLibrary.source
           dockers_env_start
 
       - name: Install and configure
         run: |
-          source ci/ciLibrary.source
+          . ci/ciLibrary.source
           install_configure
+
+      - name: Prepare for coverage reporting
+        run: |
+          . ci/ciLibrary.source
+          configure_coverage
 
       - name: Unit testing
         run: |
-          source ci/ciLibrary.source
+          . ci/ciLibrary.source
           build_test_unit
         if: ${{ success() || failure() }}
 
       - name: E2e testing
         run: |
-          source ci/ciLibrary.source
+          . ci/ciLibrary.source
           build_test_e2e
         if: ${{ success() || failure() }}
 
       - name: Api testing
         run: |
-          source ci/ciLibrary.source
+          . ci/ciLibrary.source
           build_test_api
         if: ${{ success() || failure() }}
 
       - name: Fixtures testing
         run: |
-          source ci/ciLibrary.source
+          . ci/ciLibrary.source
           build_test_fixtures
         if: ${{ success() || failure() }}
 
       - name: Services testing
         run: |
-          source ci/ciLibrary.source
+          . ci/ciLibrary.source
           build_test_services
         if: ${{ success() || failure() }}
 
       - name: Validators testing
         run: |
-          source ci/ciLibrary.source
+          . ci/ciLibrary.source
           build_test_validators
         if: ${{ success() || failure() }}
 
       - name: Controllers testing
         run: |
-          source ci/ciLibrary.source
+          . ci/ciLibrary.source
           build_test_controllers
         if: ${{ success() || failure() }}
 
       - name: Common testing
         run: |
-          source ci/ciLibrary.source
+          . ci/ciLibrary.source
           build_test_common
         if: ${{ success() || failure() }}
+
+      - name: Combine coverage
+        run: |
+          . ci/ciLibrary.source
+          merge_coverage
+
+      - uses: actions/upload-artifact@v4
+        with:
+            name: coverage.clover.xml
+            path: coverage.clover.xml
+
+      - uses: actions/upload-artifact@v4
+        with:
+            name: coverage.cobertura.xml
+            path: coverage.cobertura.xml
+
+      - uses: actions/upload-artifact@v4
+        with:
+            name: coverage.crap4j.xml
+            path: coverage.crap4j.xml
 
       - uses: actions/upload-artifact@v4
         with:
