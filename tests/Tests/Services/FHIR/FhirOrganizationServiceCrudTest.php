@@ -10,7 +10,7 @@ use OpenEMR\Services\FHIR\FhirOrganizationService;
 
 /**
  * FHIR Organization Service Crud Tests
- * @coversDefaultClass OpenEMR\Services\FHIR\FhirOrganizationService
+ * @coversDefaultClass \OpenEMR\Services\FHIR\FhirOrganizationService
  *
  * @package   OpenEMR
  * @link      http://www.open-emr.org

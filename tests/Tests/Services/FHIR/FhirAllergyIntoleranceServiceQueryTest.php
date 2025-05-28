@@ -2,7 +2,7 @@
 
 /**
  * FHIR Allergy Intolerance Service Query Tests
- * @coversDefaultClass OpenEMR\Services\FHIR\FhirPatientService
+ * @coversDefaultClass \OpenEMR\Services\FHIR\FhirAllergyIntoleranceService;
  * @package   OpenEMR
  * @link      http://www.open-emr.org
  * @author    Stephen Nielson <stephen@nielson.org>

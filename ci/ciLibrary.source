@@ -22,6 +22,7 @@ coverage_args=(
     --coverage-filter portal
     --coverage-filter sites
     --coverage-filter src
+    --coverage-filter tests
     --coverage-text
     --path-coverage
 )
