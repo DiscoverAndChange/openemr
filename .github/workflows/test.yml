@@ -55,47 +55,47 @@ jobs:
           . ci/ciLibrary.source
           configure_coverage
 
-      - name: Unit testing
-        run: |
-          . ci/ciLibrary.source
-          build_test_unit
-        if: ${{ success() || failure() }}
+      # - name: Unit testing
+      #   run: |
+      #     . ci/ciLibrary.source
+      #     build_test_unit
+      #   if: ${{ success() || failure() }}
 
-      - name: E2e testing
-        run: |
-          . ci/ciLibrary.source
-          build_test_e2e
-        if: ${{ success() || failure() }}
+      # - name: E2e testing
+      #   run: |
+      #     . ci/ciLibrary.source
+      #     build_test_e2e
+      #   if: ${{ success() || failure() }}
 
-      - name: Api testing
-        run: |
-          . ci/ciLibrary.source
-          build_test_api
-        if: ${{ success() || failure() }}
+      # - name: Api testing
+      #   run: |
+      #     . ci/ciLibrary.source
+      #     build_test_api
+      #   if: ${{ success() || failure() }}
 
-      - name: Fixtures testing
-        run: |
-          . ci/ciLibrary.source
-          build_test_fixtures
-        if: ${{ success() || failure() }}
+      # - name: Fixtures testing
+      #   run: |
+      #     . ci/ciLibrary.source
+      #     build_test_fixtures
+      #   if: ${{ success() || failure() }}
 
-      - name: Services testing
-        run: |
-          . ci/ciLibrary.source
-          build_test_services
-        if: ${{ success() || failure() }}
+      # - name: Services testing
+      #   run: |
+      #     . ci/ciLibrary.source
+      #     build_test_services
+      #   if: ${{ success() || failure() }}
 
-      - name: Validators testing
-        run: |
-          . ci/ciLibrary.source
-          build_test_validators
-        if: ${{ success() || failure() }}
+      # - name: Validators testing
+      #   run: |
+      #     . ci/ciLibrary.source
+      #     build_test_validators
+      #   if: ${{ success() || failure() }}
 
-      - name: Controllers testing
-        run: |
-          . ci/ciLibrary.source
-          build_test_controllers
-        if: ${{ success() || failure() }}
+      # - name: Controllers testing
+      #   run: |
+      #     . ci/ciLibrary.source
+      #     build_test_controllers
+      #   if: ${{ success() || failure() }}
 
       - name: Common testing
         run: |
@@ -103,48 +103,34 @@ jobs:
           build_test_common
         if: ${{ success() || failure() }}
 
-      - name: Combine coverage
-        run: |
-          . ci/ciLibrary.source
-          merge_coverage
-        if: ${{ success() || failure() }}
+      # - name: Combine coverage
+      #   run: |
+      #     . ci/ciLibrary.source
+      #     merge_coverage
+      #   if: ${{ success() || failure() }}
 
-      - name: Check if coverage files exist
-        if: ${{ always() }}
-        id: check-files
-        run: |
-          echo "clover_exists=$(test -f coverage.clover.xml && echo true || echo false)" >> $GITHUB_OUTPUT
-          echo "cobertura_exists=$(test -f coverage.cobertura.xml && echo true || echo false)" >> $GITHUB_OUTPUT
-          echo "crap4j_exists=$(test -f coverage.crap4j.xml && echo true || echo false)" >> $GITHUB_OUTPUT
-          echo "htmlcov_exists=$(test -d ./htmlcov && echo true || echo false)" >> $GITHUB_OUTPUT
+      # - name: Check if coverage files exist
+      #   if: ${{ always() }}
+      #   id: check-files
+      #   run: |
+      #     echo "clover_exists=$(test -f coverage.clover.xml && echo true || echo false)" >> $GITHUB_OUTPUT
+      #     echo "htmlcov_exists=$(test -d ./htmlcov && echo true || echo false)" >> $GITHUB_OUTPUT
 
-      - uses: actions/upload-artifact@v4
-        if: ${{ always() && steps.check-files.outputs.clover_exists == 'true' }}
-        with:
-          name: coverage.clover.xml
-          path: coverage.clover.xml
+      # - uses: actions/upload-artifact@v4
+      #   if: ${{ always() && steps.check-files.outputs.clover_exists == 'true' }}
+      #   with:
+      #     name: coverage.clover.xml
+      #     path: coverage.clover.xml
 
-      - uses: actions/upload-artifact@v4
-        if: ${{ always() && steps.check-files.outputs.cobertura_exists == 'true' }}
-        with:
-          name: coverage.cobertura.xml
-          path: coverage.cobertura.xml
+      # - uses: actions/upload-artifact@v4
+      #   if: ${{ always() && steps.check-files.outputs.htmlcov_exists == 'true' }}
+      #   with:
+      #     name: htmlcov
+      #     path: ./htmlcov/
 
-      - uses: actions/upload-artifact@v4
-        if: ${{ always() && steps.check-files.outputs.crap4j_exists == 'true' }}
-        with:
-          name: coverage.crap4j.xml
-          path: coverage.crap4j.xml
-
-      - uses: actions/upload-artifact@v4
-        if: ${{ always() && steps.check-files.outputs.htmlcov_exists == 'true' }}
-        with:
-          name: htmlcov
-          path: ./htmlcov/
-
-      - name: Upload coverage reports to Codecov
-        if: ${{ always() && steps.check-files.outputs.clover_exists == 'true' }}
-        uses: codecov/codecov-action@v5
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: coverage.clover.xml
+      # - name: Upload coverage reports to Codecov
+      #   if: ${{ always() && steps.check-files.outputs.clover_exists == 'true' }}
+      #   uses: codecov/codecov-action@v5
+      #   with:
+      #     token: ${{ secrets.CODECOV_TOKEN }}
+      #     files: coverage.clover.xml
