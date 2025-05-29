@@ -6,7 +6,7 @@ use PHPUnit\Framework\TestCase;
 use OpenEMR\Tests\Fixtures\FixtureManager;
 
 /**
- * @coversDefaultClass OpenEMR\Tests\Fixture\FixtureManager
+ * @coversDefaultClass \OpenEMR\Tests\Fixtures\FixtureManager
  *
  * @package   OpenEMR
  * @link      http://www.open-emr.org
