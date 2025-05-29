@@ -13,7 +13,7 @@ use OpenEMR\Tests\Fixtures\FixtureManager;
 /**
  * FHIR Allergy Intolerance Service Query Tests
  *
- * @coversDefaultClass \OpenEMR\Services\FHIR\FhirAllergyIntoleranceService;
+ * @coversDefaultClass \OpenEMR\Services\FHIR\FhirAllergyIntoleranceService
  * @package   OpenEMR
  * @link      http://www.open-emr.org
  * @author    Stephen Nielson <stephen@nielson.org>
