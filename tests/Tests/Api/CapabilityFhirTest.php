@@ -5,12 +5,12 @@ namespace OpenEMR\Tests\Api;
 use OpenEMR\FHIR\SMART\Capability;
 use OpenEMR\RestControllers\AuthorizationController;
 use OpenEMR\RestControllers\FHIR\FhirMetaDataRestController;
-use PHPUnit\Framework\TestCase;
-use OpenEMR\Tests\Api\ApiTestClient;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversFunction;
 
 /**
  * Capability FHIR Endpoint Test Cases.
- * @coversDefaultClass OpenEMR\Tests\Api\ApiTestClient
  * @package   OpenEMR
  * @link      http://www.open-emr.org
  * @author    Brady Miller <brady.g.miller@gmail.com>
@@ -18,21 +18,14 @@ use OpenEMR\Tests\Api\ApiTestClient;
  * @license   https://github.com/openemr/openemr/blob/master/LICENSE GNU General Public License 3
  *
  */
-class CapabilityFhirTest extends TestCase
+#[CoversClass(FhirMetaDataRestController::class)]
+#[CoversMethod(FhirMetaDataRestController::class, '::getMetaData')]
+class CapabilityFhirTest extends ApiTestCase
 {
     const CAPABILITY_FHIR_ENDPOINT = "/apis/default/fhir/metadata";
     const CAPABILITY_OAUTH_PREFIX = "/oauth2/default";
     const CAPABILITY_FHIR_ENDPOINT_INVALID_SITE = "/apis/baddefault/fhir/metadata";
 
-    /**
-     * @var ApiTestClient
-     */
-    private $testClient;
-
-    /**
-     * @var string
-     */
-    private $baseUrl;
 
     /**
      * Base url endpoint for oauth2 capability uris
@@ -42,42 +35,43 @@ class CapabilityFhirTest extends TestCase
 
     protected function setUp(): void
     {
+        parent::setUp();
         $baseUrl = getenv("OPENEMR_BASE_URL_API", true) ?: "https://localhost";
-        $this->testClient = new ApiTestClient($baseUrl, false);
-        $this->baseUrl = $baseUrl;
         $this->oauthBaseUrl = $baseUrl . self::CAPABILITY_OAUTH_PREFIX;
     }
 
     public function tearDown(): void
     {
-        $this->testClient->cleanupRevokeAuth();
-        $this->testClient->cleanupClient();
+        parent::tearDown();
     }
 
     /**
-     * @covers ::get with an invalid path
+     * with an invalid path
      */
+    #[Test]
     public function testInvalidPathGet()
     {
-        $actualResponse = $this->testClient->get(self::CAPABILITY_FHIR_ENDPOINT . "ss");
+        $actualResponse = $this->get(self::CAPABILITY_FHIR_ENDPOINT . "ss");
         $this->assertEquals(401, $actualResponse->getStatusCode());
     }
 
     /**
-     * @covers ::get with an invalid site
+     * with an invalid site
      */
+    #[Test]
     public function testInvalidSiteGet()
     {
-        $actualResponse = $this->testClient->get(self::CAPABILITY_FHIR_ENDPOINT_INVALID_SITE);
+        $actualResponse = $this->get(self::CAPABILITY_FHIR_ENDPOINT_INVALID_SITE);
         $this->assertEquals(400, $actualResponse->getStatusCode());
     }
 
     /**
-     * @covers ::get
+     *
      */
+    #[Test]
     public function testGet()
     {
-        $actualResponse = $this->testClient->get(self::CAPABILITY_FHIR_ENDPOINT);
+        $actualResponse = $this->get(self::CAPABILITY_FHIR_ENDPOINT);
         $this->assertEquals(200, $actualResponse->getStatusCode());
         $body = $actualResponse->getBody();
         $this->assertNotNull($body); // make sure we have a body here

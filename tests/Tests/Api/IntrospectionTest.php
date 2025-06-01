@@ -3,11 +3,8 @@
 namespace OpenEMR\Tests\Api;
 
 use PHPUnit\Framework\TestCase;
-use OpenEMR\Tests\Api\ApiTestClient;
-
 /**
  * Capability FHIR Endpoint Test Cases.
- * @coversDefaultClass OpenEMR\Tests\Api\ApiTestClient
  * @package   OpenEMR
  * @link      http://www.open-emr.org
  * @author    Brady Miller <brady.g.miller@gmail.com>
@@ -15,12 +12,15 @@ use OpenEMR\Tests\Api\ApiTestClient;
  * @license   https://github.com/openemr/openemr/blob/master/LICENSE GNU General Public License 3
  *
  */
+#[CoversClass(ApiTestClient::class)]
 class IntrospectionTest extends TestCase
 {
     /**
      * @var ApiTestClient
      */
     private $client;
+
+    const OAUTH_INTROSPECTION_ENDPOINT = "/oauth2/default/introspect";
 
     protected function setUp(): void
     {
@@ -78,7 +78,7 @@ class IntrospectionTest extends TestCase
             "client_secret" => $this->client->getClientSecret(),
             "token" => $this->client->getAccessToken()
         ];
-        $authResponse = $this->client->post(ApiTestClient::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
+        $authResponse = $this->client->post(self::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
         $this->assertEquals(200, $authResponse->getStatusCode());
         $responseBody = json_decode($authResponse->getBody());
         $this->assertEquals(true, $responseBody->active);
@@ -95,7 +95,7 @@ class IntrospectionTest extends TestCase
             "client_secret" => $this->client->getClientSecret(),
             "token" => $this->client->getAccessToken()
         ];
-        $authResponse = $this->client->post(ApiTestClient::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
+        $authResponse = $this->client->post(self::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
         $this->assertEquals(200, $authResponse->getStatusCode());
         $responseBody = json_decode($authResponse->getBody());
         $this->assertEquals(true, $responseBody->active);
@@ -103,7 +103,7 @@ class IntrospectionTest extends TestCase
         $this->assertEquals($this->client->getClientId(), $responseBody->client_id);
 
         $this->client->cleanupRevokeAuth();
-        $authResponse = $this->client->post(ApiTestClient::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
+        $authResponse = $this->client->post(self::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
         $this->assertEquals(200, $authResponse->getStatusCode());
         $responseBody = json_decode($authResponse->getBody());
         $this->assertEquals(false, $responseBody->active);
@@ -120,7 +120,7 @@ class IntrospectionTest extends TestCase
             "client_secret" => $this->client->getClientSecret(),
             "token" => ApiTestClient::BOGUS_ACCESS_TOKEN
         ];
-        $authResponse = $this->client->post(ApiTestClient::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
+        $authResponse = $this->client->post(self::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
         $this->assertEquals(200, $authResponse->getStatusCode());
         $responseBody = json_decode($authResponse->getBody());
         $this->assertEquals(false, $responseBody->active);
@@ -136,7 +136,7 @@ class IntrospectionTest extends TestCase
             "client_secret" => $this->client->getClientSecret(),
             "token" => $this->client->getAccessToken()
         ];
-        $authResponse = $this->client->post(ApiTestClient::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
+        $authResponse = $this->client->post(self::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
         $this->assertEquals(401, $authResponse->getStatusCode());
         $responseBody = json_decode($authResponse->getBody());
         $this->assertEquals('invalid_request', $responseBody->error);
@@ -152,7 +152,7 @@ class IntrospectionTest extends TestCase
             "client_secret" => ApiTestClient::BOGUS_CLIENTSECRET,
             "token" => $this->client->getAccessToken()
         ];
-        $authResponse = $this->client->post(ApiTestClient::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
+        $authResponse = $this->client->post(self::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
         $this->assertEquals(401, $authResponse->getStatusCode());
         $responseBody = json_decode($authResponse->getBody());
         $this->assertEquals('invalid_request', $responseBody->error);
@@ -167,7 +167,7 @@ class IntrospectionTest extends TestCase
             "client_id" => $this->client->getClientId(),
             "token" => $this->client->getAccessToken()
         ];
-        $authResponse = $this->client->post(ApiTestClient::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
+        $authResponse = $this->client->post(self::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
         $this->assertEquals(400, $authResponse->getStatusCode());
         $responseBody = json_decode($authResponse->getBody());
         $this->assertEquals('invalid_request', $responseBody->error);
@@ -182,7 +182,7 @@ class IntrospectionTest extends TestCase
             "client_secret" => $this->client->getClientSecret(),
             "token" => $this->client->getAccessToken()
         ];
-        $authResponse = $this->client->post(ApiTestClient::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
+        $authResponse = $this->client->post(self::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
         $this->assertEquals(200, $authResponse->getStatusCode());
         $responseBody = json_decode($authResponse->getBody());
         $this->assertEquals(true, $responseBody->active);
@@ -198,7 +198,7 @@ class IntrospectionTest extends TestCase
             "client_secret" => $this->client->getClientSecret(),
             "token" => $this->client->getAccessToken()
         ];
-        $authResponse = $this->client->post(ApiTestClient::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
+        $authResponse = $this->client->post(self::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
         $this->assertEquals(200, $authResponse->getStatusCode());
         $responseBody = json_decode($authResponse->getBody());
         $this->assertEquals(true, $responseBody->active);
@@ -206,7 +206,7 @@ class IntrospectionTest extends TestCase
         $this->assertEquals($this->client->getClientId(), $responseBody->client_id);
 
         $this->client->cleanupRevokeAuth();
-        $authResponse = $this->client->post(ApiTestClient::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
+        $authResponse = $this->client->post(self::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
         $this->assertEquals(200, $authResponse->getStatusCode());
         $responseBody = json_decode($authResponse->getBody());
         $this->assertEquals(false, $responseBody->active);
@@ -222,7 +222,7 @@ class IntrospectionTest extends TestCase
             "client_secret" => $this->client->getClientSecret(),
             "token" => ApiTestClient::BOGUS_ACCESS_TOKEN
         ];
-        $authResponse = $this->client->post(ApiTestClient::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
+        $authResponse = $this->client->post(self::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
         $this->assertEquals(200, $authResponse->getStatusCode());
         $responseBody = json_decode($authResponse->getBody());
         $this->assertEquals(false, $responseBody->active);
@@ -237,7 +237,7 @@ class IntrospectionTest extends TestCase
             "client_secret" => $this->client->getClientSecret(),
             "token" => $this->client->getAccessToken()
         ];
-        $authResponse = $this->client->post(ApiTestClient::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
+        $authResponse = $this->client->post(self::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
         $this->assertEquals(401, $authResponse->getStatusCode());
         $responseBody = json_decode($authResponse->getBody());
         $this->assertEquals('invalid_request', $responseBody->error);
@@ -252,7 +252,7 @@ class IntrospectionTest extends TestCase
             "client_secret" => ApiTestClient::BOGUS_CLIENTSECRET,
             "token" => $this->client->getAccessToken()
         ];
-        $authResponse = $this->client->post(ApiTestClient::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
+        $authResponse = $this->client->post(self::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
         $this->assertEquals(401, $authResponse->getStatusCode());
         $responseBody = json_decode($authResponse->getBody());
         $this->assertEquals('invalid_request', $responseBody->error);
@@ -266,7 +266,7 @@ class IntrospectionTest extends TestCase
             "client_id" => $this->client->getClientId(),
             "token" => $this->client->getAccessToken()
         ];
-        $authResponse = $this->client->post(ApiTestClient::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
+        $authResponse = $this->client->post(self::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
         $this->assertEquals(400, $authResponse->getStatusCode());
         $responseBody = json_decode($authResponse->getBody());
         $this->assertEquals('invalid_request', $responseBody->error);
@@ -282,7 +282,7 @@ class IntrospectionTest extends TestCase
             "client_secret" => $this->client->getClientSecret(),
             "token" => $this->client->getRefreshToken()
         ];
-        $authResponse = $this->client->post(ApiTestClient::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
+        $authResponse = $this->client->post(self::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
         $this->assertEquals(200, $authResponse->getStatusCode());
         $responseBody = json_decode($authResponse->getBody());
         $this->assertEquals(true, $responseBody->active);
@@ -299,7 +299,7 @@ class IntrospectionTest extends TestCase
             "client_secret" => $this->client->getClientSecret(),
             "token" => $this->client->getRefreshToken()
         ];
-        $authResponse = $this->client->post(ApiTestClient::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
+        $authResponse = $this->client->post(self::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
         $this->assertEquals(200, $authResponse->getStatusCode());
         $responseBody = json_decode($authResponse->getBody());
         $this->assertEquals(true, $responseBody->active);
@@ -307,7 +307,7 @@ class IntrospectionTest extends TestCase
         $this->assertEquals($this->client->getClientId(), $responseBody->client_id);
 
         $this->client->cleanupRevokeAuth();
-        $authResponse = $this->client->post(ApiTestClient::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
+        $authResponse = $this->client->post(self::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
         $this->assertEquals(200, $authResponse->getStatusCode());
         $responseBody = json_decode($authResponse->getBody());
         $this->assertEquals(false, $responseBody->active);
@@ -324,7 +324,7 @@ class IntrospectionTest extends TestCase
             "client_secret" => $this->client->getClientSecret(),
             "token" => ApiTestClient::BOGUS_REFRESH_TOKEN
         ];
-        $authResponse = $this->client->post(ApiTestClient::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
+        $authResponse = $this->client->post(self::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
         $this->assertEquals(400, $authResponse->getStatusCode());
     }
 
@@ -337,7 +337,7 @@ class IntrospectionTest extends TestCase
             "client_secret" => $this->client->getClientSecret(),
             "token" => $this->client->getRefreshToken()
         ];
-        $authResponse = $this->client->post(ApiTestClient::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
+        $authResponse = $this->client->post(self::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
         $this->assertEquals(401, $authResponse->getStatusCode());
         $responseBody = json_decode($authResponse->getBody());
         $this->assertEquals('invalid_request', $responseBody->error);
@@ -353,7 +353,7 @@ class IntrospectionTest extends TestCase
             "client_secret" => ApiTestClient::BOGUS_CLIENTSECRET,
             "token" => $this->client->getRefreshToken()
         ];
-        $authResponse = $this->client->post(ApiTestClient::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
+        $authResponse = $this->client->post(self::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
         $this->assertEquals(401, $authResponse->getStatusCode());
         $responseBody = json_decode($authResponse->getBody());
         $this->assertEquals('invalid_request', $responseBody->error);
@@ -368,7 +368,7 @@ class IntrospectionTest extends TestCase
             "client_id" => $this->client->getClientId(),
             "token" => $this->client->getRefreshToken()
         ];
-        $authResponse = $this->client->post(ApiTestClient::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
+        $authResponse = $this->client->post(self::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
         $this->assertEquals(400, $authResponse->getStatusCode());
         $responseBody = json_decode($authResponse->getBody());
         $this->assertEquals('invalid_request', $responseBody->error);
@@ -383,7 +383,7 @@ class IntrospectionTest extends TestCase
             "client_secret" => $this->client->getClientSecret(),
             "token" => $this->client->getRefreshToken()
         ];
-        $authResponse = $this->client->post(ApiTestClient::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
+        $authResponse = $this->client->post(self::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
         $this->assertEquals(200, $authResponse->getStatusCode());
         $responseBody = json_decode($authResponse->getBody());
         $this->assertEquals(true, $responseBody->active);
@@ -399,7 +399,7 @@ class IntrospectionTest extends TestCase
             "client_secret" => $this->client->getClientSecret(),
             "token" => $this->client->getRefreshToken()
         ];
-        $authResponse = $this->client->post(ApiTestClient::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
+        $authResponse = $this->client->post(self::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
         $this->assertEquals(200, $authResponse->getStatusCode());
         $responseBody = json_decode($authResponse->getBody());
         $this->assertEquals(true, $responseBody->active);
@@ -407,7 +407,7 @@ class IntrospectionTest extends TestCase
         $this->assertEquals($this->client->getClientId(), $responseBody->client_id);
 
         $this->client->cleanupRevokeAuth();
-        $authResponse = $this->client->post(ApiTestClient::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
+        $authResponse = $this->client->post(self::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
         $this->assertEquals(200, $authResponse->getStatusCode());
         $responseBody = json_decode($authResponse->getBody());
         $this->assertEquals(false, $responseBody->active);
@@ -423,7 +423,7 @@ class IntrospectionTest extends TestCase
             "client_secret" => $this->client->getClientSecret(),
             "token" => ApiTestClient::BOGUS_REFRESH_TOKEN
         ];
-        $authResponse = $this->client->post(ApiTestClient::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
+        $authResponse = $this->client->post(self::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
         $this->assertEquals(400, $authResponse->getStatusCode());
     }
 
@@ -435,7 +435,7 @@ class IntrospectionTest extends TestCase
             "client_secret" => $this->client->getClientSecret(),
             "token" => $this->client->getRefreshToken()
         ];
-        $authResponse = $this->client->post(ApiTestClient::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
+        $authResponse = $this->client->post(self::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
         $this->assertEquals(401, $authResponse->getStatusCode());
         $responseBody = json_decode($authResponse->getBody());
         $this->assertEquals('invalid_request', $responseBody->error);
@@ -450,7 +450,7 @@ class IntrospectionTest extends TestCase
             "client_secret" => ApiTestClient::BOGUS_CLIENTSECRET,
             "token" => $this->client->getRefreshToken()
         ];
-        $authResponse = $this->client->post(ApiTestClient::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
+        $authResponse = $this->client->post(self::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
         $this->assertEquals(401, $authResponse->getStatusCode());
         $responseBody = json_decode($authResponse->getBody());
         $this->assertEquals('invalid_request', $responseBody->error);
@@ -464,7 +464,7 @@ class IntrospectionTest extends TestCase
             "client_id" => $this->client->getClientId(),
             "token" => $this->client->getRefreshToken()
         ];
-        $authResponse = $this->client->post(ApiTestClient::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
+        $authResponse = $this->client->post(self::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
         $this->assertEquals(400, $authResponse->getStatusCode());
         $responseBody = json_decode($authResponse->getBody());
         $this->assertEquals('invalid_request', $responseBody->error);
@@ -479,7 +479,7 @@ class IntrospectionTest extends TestCase
             "client_id" => $this->client->getClientId(),
             "token" => $this->client->getAccessToken()
         ];
-        $authResponse = $this->client->post(ApiTestClient::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
+        $authResponse = $this->client->post(self::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
         $this->assertEquals(200, $authResponse->getStatusCode());
         $responseBody = json_decode($authResponse->getBody());
         $this->assertEquals(true, $responseBody->active);
@@ -495,7 +495,7 @@ class IntrospectionTest extends TestCase
             "client_id" => $this->client->getClientId(),
             "token" => $this->client->getAccessToken()
         ];
-        $authResponse = $this->client->post(ApiTestClient::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
+        $authResponse = $this->client->post(self::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
         $this->assertEquals(200, $authResponse->getStatusCode());
         $responseBody = json_decode($authResponse->getBody());
         $this->assertEquals(true, $responseBody->active);
@@ -503,7 +503,7 @@ class IntrospectionTest extends TestCase
         $this->assertEquals($this->client->getClientId(), $responseBody->client_id);
 
         $this->client->cleanupRevokeAuth();
-        $authResponse = $this->client->post(ApiTestClient::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
+        $authResponse = $this->client->post(self::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
         $this->assertEquals(200, $authResponse->getStatusCode());
         $responseBody = json_decode($authResponse->getBody());
         $this->assertEquals(false, $responseBody->active);
@@ -519,7 +519,7 @@ class IntrospectionTest extends TestCase
             "client_id" => $this->client->getClientId(),
             "token" => ApiTestClient::BOGUS_ACCESS_TOKEN
         ];
-        $authResponse = $this->client->post(ApiTestClient::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
+        $authResponse = $this->client->post(self::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
         $this->assertEquals(200, $authResponse->getStatusCode());
         $responseBody = json_decode($authResponse->getBody());
         $this->assertEquals(false, $responseBody->active);
@@ -534,7 +534,7 @@ class IntrospectionTest extends TestCase
             "client_id" => ApiTestClient::BOGUS_CLIENTID,
             "token" => $this->client->getAccessToken()
         ];
-        $authResponse = $this->client->post(ApiTestClient::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
+        $authResponse = $this->client->post(self::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
         $this->assertEquals(401, $authResponse->getStatusCode());
         $responseBody = json_decode($authResponse->getBody());
         $this->assertEquals('invalid_request', $responseBody->error);
@@ -548,7 +548,7 @@ class IntrospectionTest extends TestCase
             "client_id" => $this->client->getClientId(),
             "token" => $this->client->getAccessToken()
         ];
-        $authResponse = $this->client->post(ApiTestClient::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
+        $authResponse = $this->client->post(self::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
         $this->assertEquals(200, $authResponse->getStatusCode());
         $responseBody = json_decode($authResponse->getBody());
         $this->assertEquals(true, $responseBody->active);
@@ -563,7 +563,7 @@ class IntrospectionTest extends TestCase
             "client_id" => $this->client->getClientId(),
             "token" => $this->client->getAccessToken()
         ];
-        $authResponse = $this->client->post(ApiTestClient::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
+        $authResponse = $this->client->post(self::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
         $this->assertEquals(200, $authResponse->getStatusCode());
         $responseBody = json_decode($authResponse->getBody());
         $this->assertEquals(true, $responseBody->active);
@@ -571,7 +571,7 @@ class IntrospectionTest extends TestCase
         $this->assertEquals($this->client->getClientId(), $responseBody->client_id);
 
         $this->client->cleanupRevokeAuth();
-        $authResponse = $this->client->post(ApiTestClient::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
+        $authResponse = $this->client->post(self::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
         $this->assertEquals(200, $authResponse->getStatusCode());
         $responseBody = json_decode($authResponse->getBody());
         $this->assertEquals(false, $responseBody->active);
@@ -586,7 +586,7 @@ class IntrospectionTest extends TestCase
             "client_id" => $this->client->getClientId(),
             "token" => ApiTestClient::BOGUS_ACCESS_TOKEN
         ];
-        $authResponse = $this->client->post(ApiTestClient::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
+        $authResponse = $this->client->post(self::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
         $this->assertEquals(200, $authResponse->getStatusCode());
         $responseBody = json_decode($authResponse->getBody());
         $this->assertEquals(false, $responseBody->active);
@@ -600,7 +600,7 @@ class IntrospectionTest extends TestCase
             "client_id" => ApiTestClient::BOGUS_CLIENTID,
             "token" => $this->client->getAccessToken()
         ];
-        $authResponse = $this->client->post(ApiTestClient::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
+        $authResponse = $this->client->post(self::OAUTH_INTROSPECTION_ENDPOINT, $introspectBody, false);
         $this->assertEquals(401, $authResponse->getStatusCode());
         $responseBody = json_decode($authResponse->getBody());
         $this->assertEquals('invalid_request', $responseBody->error);
