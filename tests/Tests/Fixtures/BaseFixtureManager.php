@@ -184,6 +184,10 @@ abstract class BaseFixtureManager
 
     private function isFunctionCall($value)
     {
+        // preg_match doesn't allow a null value
+        if (is_null($value)) {
+            return false;
+        }
         return preg_match("/[a-zA-Z]+\(['a-zA-Z_0-9\-]*\)/", $value) === 1;
     }
 

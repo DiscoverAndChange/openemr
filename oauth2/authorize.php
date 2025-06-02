@@ -17,7 +17,9 @@ use OpenEMR\Common\Csrf\CsrfUtils;
 use OpenEMR\Common\Logging\SystemLogger;
 use OpenEMR\Common\Session\SessionUtil;
 use OpenEMR\RestControllers\AuthorizationController;
+use OpenEMR\Tools\Coverage\CoverageHelper;
 
+CoverageHelper::setupCodeCoverageIfEnabled();
 $gbl = RestConfig::GetInstance();
 if (empty($gbl::$SITE)) {
     http_response_code(401);

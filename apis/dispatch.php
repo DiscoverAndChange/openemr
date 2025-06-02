@@ -14,8 +14,6 @@
  * @license   https://github.com/openemr/openemr/blob/master/LICENSE GNU General Public License 3
  */
 
-// below brings in autoloader
-require_once("./../_rest_config.php");
 
 use OpenEMR\Common\Auth\UuidUserAccount;
 use OpenEMR\Common\Csrf\CsrfUtils;
@@ -28,6 +26,13 @@ use OpenEMR\FHIR\SMART\SmartLaunchController;
 use OpenEMR\Events\RestApiExtend\RestApiCreateEvent;
 use OpenEMR\Telemetry\TelemetryService;
 use Psr\Http\Message\ResponseInterface;
+use OpenEMR\Tools\Coverage\CoverageHelper;
+
+
+// below brings in autoloader
+require_once("./../_rest_config.php");
+$logger = new SystemLogger();
+CoverageHelper::setupCodeCoverageIfEnabled();
 
 $gbl = RestConfig::GetInstance();
 $restRequest = new HttpRestRequest($gbl, $_SERVER);
@@ -35,7 +40,6 @@ $routes = array();
 
 // Parse needed information from Redirect or REQUEST_URI
 $resource = $gbl::getRequestEndPoint();
-$logger = new SystemLogger();
 $logger->debug("dispatch.php requested", ["resource" => $resource, "method" => $_SERVER['REQUEST_METHOD']]);
 
 $skipApiAuth = false;
@@ -422,3 +426,5 @@ try {
 } catch (\Exception $e) {
     $logger->error("dispatch.php telemetry error", ['exception' => $e]);
 }
+
+

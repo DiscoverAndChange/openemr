@@ -2,14 +2,14 @@
 
 namespace OpenEMR\Tests\Api;
 
-use PHPUnit\Framework\TestCase;
-use OpenEMR\Tests\Api\ApiTestClient;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversFunction;
+use OpenEMR\RestControllers\PatientRestController;
 use OpenEMR\Tests\Fixtures\FixtureManager;
 
 /**
  * Patient API Endpoint Test Cases.
- * NOTE: currently disabled (by naming convention) until work is completed to support running as part of Travis CI
- * @coversDefaultClass OpenEMR\Tests\Api\ApiTestClient
  * @package   OpenEMR
  * @link      http://www.open-emr.org
  * @author    Dixon Whitmire <dixonwh@gmail.com>
@@ -17,18 +17,21 @@ use OpenEMR\Tests\Fixtures\FixtureManager;
  * @license   https://github.com/openemr/openemr/blob/master/LICENSE GNU General Public License 3
  *
  */
-class PatientApiTest extends TestCase
+#[CoversClass(PatientRestController::class)]
+#[CoversMethod(PatientRestController::class, '::post')]
+#[CoversMethod(PatientRestController::class, '::put')]
+#[CoversMethod(PatientRestController::class, '::getOne')]
+#[CoversMethod(PatientRestController::class, '::getAll')]
+class PatientApiTest extends ApiTestCase
 {
     const PATIENT_API_ENDPOINT = "/apis/default/api/patient";
-    private $testClient;
     private $fixtureManager;
+    private array $patientRecord;
 
     protected function setUp(): void
     {
-        $baseUrl = getenv("OPENEMR_BASE_URL_API", true) ?: "https://localhost";
-        $this->testClient = new ApiTestClient($baseUrl, false);
-        $this->testClient->setAuthToken(ApiTestClient::OPENEMR_AUTH_ENDPOINT);
-
+        parent::setUp();
+        $this->setAuthToken();
         $this->fixtureManager = new FixtureManager();
         $this->patientRecord = (array) $this->fixtureManager->getSinglePatientFixture();
     }
@@ -41,13 +44,13 @@ class PatientApiTest extends TestCase
     }
 
     /**
-     * @covers ::post with an invalid patient request
+     * with an invalid patient request
      */
+    #[Test]
     public function testInvalidPost()
     {
         unset($this->patientRecord["fname"]);
-        $actualResponse = $this->testClient->post(self::PATIENT_API_ENDPOINT, $this->patientRecord);
-
+        $actualResponse = $this->post(self::PATIENT_API_ENDPOINT, $this->patientRecord);
         $this->assertEquals(400, $actualResponse->getStatusCode());
         $responseBody = json_decode($actualResponse->getBody(), true);
         $this->assertEquals(1, count($responseBody["validationErrors"]));
@@ -56,11 +59,12 @@ class PatientApiTest extends TestCase
     }
 
     /**
-     * @covers ::post with a valid patient request
+     * with a valid patient request
      */
+    #[Test]
     public function testPost()
     {
-        $actualResponse = $this->testClient->post(self::PATIENT_API_ENDPOINT, $this->patientRecord);
+        $actualResponse = $this->post(self::PATIENT_API_ENDPOINT, $this->patientRecord);
 
         $this->assertEquals(201, $actualResponse->getStatusCode());
         $responseBody = json_decode($actualResponse->getBody(), true);
@@ -76,15 +80,16 @@ class PatientApiTest extends TestCase
     }
 
     /**
-     * @covers ::put with an invalid pid and uuid
+     * with an invalid pid and uuid
      */
+    #[Test]
     public function testInvalidPut()
     {
-        $actualResponse = $this->testClient->post(self::PATIENT_API_ENDPOINT, $this->patientRecord);
+        $actualResponse = $this->post(self::PATIENT_API_ENDPOINT, $this->patientRecord);
         $this->assertEquals(201, $actualResponse->getStatusCode());
 
         $this->patientRecord["phone_home"] = "222-222-2222";
-        $actualResponse = $this->testClient->put(self::PATIENT_API_ENDPOINT, "not-a-uuid", $this->patientRecord);
+        $actualResponse = $this->put(self::PATIENT_API_ENDPOINT, "not-a-uuid", $this->patientRecord);
 
         $this->assertEquals(400, $actualResponse->getStatusCode());
         $responseBody = json_decode($actualResponse->getBody(), true);
@@ -94,18 +99,19 @@ class PatientApiTest extends TestCase
     }
 
     /**
-     * @covers ::put with a valid resource id and payload
+     * with a valid resource id and payload
      */
+    #[Test]
     public function testPut()
     {
-        $actualResponse = $this->testClient->post(self::PATIENT_API_ENDPOINT, $this->patientRecord);
+        $actualResponse = $this->post(self::PATIENT_API_ENDPOINT, $this->patientRecord);
         $this->assertEquals(201, $actualResponse->getStatusCode());
         $responseBody = json_decode($actualResponse->getBody(), true);
 
         $patientUuid = $responseBody["data"]["uuid"];
 
         $this->patientRecord["phone_home"] = "222-222-2222";
-        $actualResponse = $this->testClient->put(self::PATIENT_API_ENDPOINT, $patientUuid, $this->patientRecord);
+        $actualResponse = $this->put(self::PATIENT_API_ENDPOINT, $patientUuid, $this->patientRecord);
 
         $this->assertEquals(200, $actualResponse->getStatusCode());
         $responseBody = json_decode($actualResponse->getBody(), true);
@@ -117,11 +123,12 @@ class PatientApiTest extends TestCase
     }
 
     /**
-     * @covers ::getOne with an invalid pid
+     * with an invalid pid
      */
+    #[Test]
     public function testGetOneInvalidPid()
     {
-        $actualResponse = $this->testClient->getOne(self::PATIENT_API_ENDPOINT, "not-a-uuid");
+        $actualResponse = $this->getOne(self::PATIENT_API_ENDPOINT, "not-a-uuid");
         $this->assertEquals(400, $actualResponse->getStatusCode());
 
         $responseBody = json_decode($actualResponse->getBody(), true);
@@ -131,18 +138,19 @@ class PatientApiTest extends TestCase
     }
 
     /**
-     * @covers ::getOne with a valid pid
+     * with a valid pid
      */
+    #[Test]
     public function testGetOne()
     {
-        $actualResponse = $this->testClient->post(self::PATIENT_API_ENDPOINT, $this->patientRecord);
+        $actualResponse = $this->post(self::PATIENT_API_ENDPOINT, $this->patientRecord);
         $this->assertEquals(201, $actualResponse->getStatusCode());
 
         $responseBody = json_decode($actualResponse->getBody(), true);
         $patientUuid = $responseBody["data"]["uuid"];
         $patientPid = $responseBody["data"]["pid"];
 
-        $actualResponse = $this->testClient->getOne(self::PATIENT_API_ENDPOINT, $patientUuid);
+        $actualResponse = $this->getOne(self::PATIENT_API_ENDPOINT, $patientUuid);
         $this->assertEquals(200, $actualResponse->getStatusCode());
 
         $responseBody = json_decode($actualResponse->getBody(), true);
@@ -152,15 +160,15 @@ class PatientApiTest extends TestCase
         $this->assertEquals($patientPid, $responseBody["data"]["pid"]);
     }
 
-
     /**
      * @covers ::getAll
      */
+    #[Test]
     public function testGetAll()
     {
         $this->fixtureManager->installPatientFixtures();
 
-        $actualResponse = $this->testClient->get(self::PATIENT_API_ENDPOINT, array("postal_code" => "90210"));
+        $actualResponse = $this->get(self::PATIENT_API_ENDPOINT, array("postal_code" => "90210"));
         $this->assertEquals(200, $actualResponse->getStatusCode());
 
         $responseBody = json_decode($actualResponse->getBody(), true);

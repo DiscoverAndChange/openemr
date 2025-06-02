@@ -25,7 +25,6 @@ class ApiTestClient
     const OPENEMR_AUTH_ENDPOINT = "/oauth2/default";
     const OAUTH_LOGOUT_ENDPOINT = "/oauth2/default/logout";
     const OAUTH_TOKEN_ENDPOINT = "/oauth2/default/token";
-    const OAUTH_INTROSPECTION_ENDPOINT = "/oauth2/default/introspect";
     const BOGUS_CLIENTID = "ugk_IdaC2szz-k0vIqhE6DYIjevkYo41neRGGpZvYfsgg";
     const BOGUS_CLIENTSECRET = "jJVKPZveRiyjAtfWFzxx_MF-3K2rGpDfzzrBjwq52L5_BvnqkCiKitcQDGgz_goJHiQt9yMTh3hu33vhp_UQOg";
     const BOGUS_ACCESS_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiJRRl80RlRkV2h4eGJlb1Y4SGU5c1ZRQUl3STlQZWdYM3IyVUdiTTVjaWtNIiwianRpIjoiYWZmYWEyOTk5NWY5MjRjZDlmMjc0YTdhZGM5NmM0YzJmZTYwNGE3MjA0ODFkMTdmMWZiYTg2ZDg4ZWIxOWI0YWVlM2RhZTM1Zjg3MjcwMDAiLCJpYXQiOjE2MDcyMTc5MTksIm5iZiI6MTYwNzIxNzkxOSwiZXhwIjoxNjA3MjIxNTE5LCJzdWIiOiI5MjJjYzYzNi01NTNiLTQ1MGQtYTJkZC1hNmRjYmM4ZDNiMDciLCJzY29wZXMiOlsib3BlbmlkIiwic2l0ZTpkZWZhdWx0Il19.u2Ujtln3vEKIR8E0rSd-xr6m-3huCxiFMaTm9_NQplVNsBkrc6Y3KLy9FRZVS3xSY1Qgav-UvOxikYT2zNNlK-LotEoEvZdtj87X6fh4wh-h5BU87lHh9aNjXFUemSO9DGKJLSZdLSeC_2w4YmbhQykGFISiltD2_PAJRKuKbpcBo3-Lafe2N83mF5i8mZXSCu_fbLrmTMYPCnsRaU_sWStzFp6p0SM3zGfLt1kjw-hcE82Ci1puqRS2nR5Z3kEOXz-hQOdXmQMq0s_gkeQZvLPOJwLGfEX5d4eIU4BfngksjGkKQhC7rUKT-_2F-U_z30P3izzZM6m4dZ10IiP80g";
@@ -76,7 +75,7 @@ class ApiTestClient
      * @return the authorization response
      *
      */
-    public function setAuthToken($authURL, $credentials = array(), $client = 'private')
+    public function setAuthToken($authURL, $credentials = array(), $client = 'private', $coverageId = null)
     {
         if (!empty($credentials) && !array_key_exists("client_id", $credentials)) {
             if (!array_key_exists("username", $credentials) || !array_key_exists("password", $credentials)) {
@@ -91,7 +90,7 @@ class ApiTestClient
         }
 
         if (empty($this->client_id)) {
-            $this->getClient($authURL, $client);
+            $this->getClient($authURL, $client, $coverageId);
         }
 
         $authBody = [
@@ -106,7 +105,7 @@ class ApiTestClient
             "Accept" => "application/json",
             "Content-Type" => "application/x-www-form-urlencoded"
         ];
-        $authResponse = $this->post($authURL . '/token', $authBody, false);
+        $authResponse = $this->post($authURL . '/token', $authBody, false, $coverageId);
         // set headers back to default
         $this->headers = [
             "Accept" => "application/json",
@@ -123,7 +122,7 @@ class ApiTestClient
         return $authResponse;
     }
 
-    private function getClient($authURL, $client = 'private')
+    private function getClient($authURL, $client = 'private', $coverageId = null)
     {
         $scope = self::ALL_SCOPES;
         if ($client != 'private') {
@@ -138,7 +137,7 @@ class ApiTestClient
             "contacts" => ["me@example.org", "them@example.org"],
             "scope" => $scope
         ];
-        $clientResponse = $this->post($authURL . '/registration', $clientBody);
+        $clientResponse = $this->post($authURL . '/registration', $clientBody, true, $coverageId);
         if ($clientResponse->getStatusCode() >= 400) {
             throw new \RuntimeException("Client registration failed with status code: " . $clientResponse->getStatusCode());
         }
@@ -239,16 +238,20 @@ class ApiTestClient
      * @param $body - The POST request body (array)
      * @return $postResponse - HTTP response
      */
-    public function post($url, $body, $json = true)
+    public function post($url, $body, $json = true, $coverageId = null)
     {
+        $headers = $this->headers;
+        if (!empty($coverageId)) {
+            $headers["X-Coverage-Id"] = $coverageId;
+        }
         if ($json) {
             $postResponse = $this->client->post($url, [
-                "headers" => $this->headers,
+                "headers" => $headers,
                 "body" => json_encode($body)
             ]);
         } else {
             $postResponse = $this->client->post($url, [
-                "headers" => $this->headers,
+                "headers" => $headers,
                 "form_params" => $body
             ]);
         }
@@ -262,12 +265,16 @@ class ApiTestClient
      * @param $body - The PUT request body (array)
      * @return $putResponse - HTTP response
      */
-    public function put($url, $id, $body)
+    public function put($url, $id, $body, $coverageId = null)
     {
+        $headers = $this->headers;
+        if (!empty($coverageId)) {
+            $headers["X-Coverage-Id"] = $coverageId;
+        }
         $resourceUrl = $url . "/" . $id;
 
         $putResponse = $this->client->put($resourceUrl, [
-            "headers" => $this->headers,
+            "headers" => $headers,
             "body" => json_encode($body)
         ]);
         return $putResponse;
@@ -280,12 +287,16 @@ class ApiTestClient
      * @param $body - The PATCH request body (array)
      * @return $patchResponse - HTTP response
      */
-    public function patch($url, $id, $body)
+    public function patch($url, $id, $body, $coverageId=null)
     {
+        $headers = $this->headers;
+        if (!empty($coverageId)) {
+            $headers["X-Coverage-Id"] = $coverageId;
+        }
         $resourceUrl = $url . "/" . $id;
 
         $patchResponse = $this->client->patch($resourceUrl, [
-            "headers" => $this->headers,
+            "headers" => $headers,
             "body" => json_encode($body)
         ]);
         return $patchResponse;
@@ -297,10 +308,14 @@ class ApiTestClient
      * @param $id - The resource id
      * @return $getResponse - HTTP response
      */
-    public function getOne($url, $id)
+    public function getOne($url, $id, $coverageId=null)
     {
+        $headers = $this->headers;
+        if (!empty($coverageId)) {
+            $headers["X-Coverage-Id"] = $coverageId;
+        }
         $resourceUrl = $url . "/" . $id;
-        $getResponse = $this->client->get($resourceUrl, ["headers" => $this->headers]);
+        $getResponse = $this->client->get($resourceUrl, ["headers" => $headers]);
         return $getResponse;
     }
 
@@ -310,10 +325,14 @@ class ApiTestClient
      * @param $params - Array of search parameters. Defaults to empty array.
      * @return $getResponse - HTTP response
      */
-    public function get($url, $params = array())
+    public function get($url, $params = array(), $coverageId=null)
     {
+        $headers = $this->headers;
+        if (!empty($coverageId)) {
+            $headers["X-Coverage-Id"] = $coverageId;
+        }
         $getResponse = $this->client->get($url, [
-            "headers" => $this->headers,
+            "headers" => $headers,
             "query" => $params
             ]);
         return $getResponse;

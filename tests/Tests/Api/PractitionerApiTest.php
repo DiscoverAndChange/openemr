@@ -2,13 +2,15 @@
 
 namespace OpenEMR\Tests\Api;
 
-use PHPUnit\Framework\TestCase;
-use OpenEMR\Tests\Api\ApiTestClient;
+use OpenEMR\RestControllers\PractitionerRestController;
 use OpenEMR\Tests\Fixtures\PractitionerFixtureManager;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversFunction;
 
 /**
  * Practitioner API Endpoint Test Cases.
- * @coversDefaultClass OpenEMR\Tests\Api\ApiTestClient
+ *
  * @package   OpenEMR
  * @link      http://www.open-emr.org
  * @author    Yash Bothra <yashrajbothra786gmail.com>
@@ -16,22 +18,26 @@ use OpenEMR\Tests\Fixtures\PractitionerFixtureManager;
  * @license   https://github.com/openemr/openemr/blob/master/LICENSE GNU General Public License 3
  *
  */
-class PractitionerApiTest extends TestCase
+#[CoversClass(PractitionerRestController::class)]
+#[CoversMethod(PractitionerRestController::class, '::post')]
+#[CoversMethod(PractitionerRestController::class, '::put')]
+#[CoversMethod(PractitionerRestController::class, '::getOne')]
+#[CoversMethod(PractitionerRestController::class, '::getAll')]
+class PractitionerApiTest extends ApiTestCase
 {
     const PRACTITIONER_API_ENDPOINT = "/apis/default/api/practitioner";
 
     /**
      * @var ApiTestClient
      */
-    private $testClient;
     private $fixtureManager;
+
+    private $practitionerRecord;
 
     protected function setUp(): void
     {
-        $baseUrl = getenv("OPENEMR_BASE_URL_API", true) ?: "https://localhost";
-        $this->testClient = new ApiTestClient($baseUrl, false);
-            $this->testClient->setAuthToken(ApiTestClient::OPENEMR_AUTH_ENDPOINT);
-
+        parent::setUp();
+        $this->setAuthToken();
         $this->fixtureManager = new PractitionerFixtureManager();
         $this->practitionerRecord = (array) $this->fixtureManager->getSinglePractitionerFixture();
     }
@@ -39,17 +45,17 @@ class PractitionerApiTest extends TestCase
     protected function tearDown(): void
     {
         $this->fixtureManager->removePractitionerFixtures();
-        $this->testClient->cleanupRevokeAuth();
-        $this->testClient->cleanupClient();
+        parent::tearDown();
     }
 
     /**
-     * @covers ::post with an invalid practitioner request
+     * with an invalid practitioner request
      */
+    #[Test]
     public function testInvalidPost()
     {
         unset($this->practitionerRecord["fname"]);
-        $actualResponse = $this->testClient->post(self::PRACTITIONER_API_ENDPOINT, $this->practitionerRecord);
+        $actualResponse = $this->post(self::PRACTITIONER_API_ENDPOINT, $this->practitionerRecord);
 
         $this->assertEquals(400, $actualResponse->getStatusCode());
         $responseBody = json_decode($actualResponse->getBody(), true);
@@ -59,11 +65,12 @@ class PractitionerApiTest extends TestCase
     }
 
     /**
-     * @covers ::post with a valid practitioner request
+     * with a valid practitioner request
      */
+    #[Test]
     public function testPost()
     {
-        $actualResponse = $this->testClient->post(self::PRACTITIONER_API_ENDPOINT, $this->practitionerRecord);
+        $actualResponse = $this->post(self::PRACTITIONER_API_ENDPOINT, $this->practitionerRecord);
 
         $this->assertEquals(201, $actualResponse->getStatusCode());
         $responseBody = json_decode($actualResponse->getBody(), true);
@@ -79,15 +86,16 @@ class PractitionerApiTest extends TestCase
     }
 
     /**
-     * @covers ::put with an invalid pid and uuid
+     * with an invalid pid and uuid
      */
+    #[Test]
     public function testInvalidPut()
     {
-        $actualResponse = $this->testClient->post(self::PRACTITIONER_API_ENDPOINT, $this->practitionerRecord);
+        $actualResponse = $this->post(self::PRACTITIONER_API_ENDPOINT, $this->practitionerRecord);
         $this->assertEquals(201, $actualResponse->getStatusCode());
 
         $this->practitionerRecord["email"] = "help@pennfirm.com";
-        $actualResponse = $this->testClient->put(
+        $actualResponse = $this->put(
             self::PRACTITIONER_API_ENDPOINT,
             "not-a-uuid",
             $this->practitionerRecord
@@ -101,18 +109,19 @@ class PractitionerApiTest extends TestCase
     }
 
     /**
-     * @covers ::put with a valid resource id and payload
+     * with a valid resource id and payload
      */
+    #[Test]
     public function testPut()
     {
-        $actualResponse = $this->testClient->post(self::PRACTITIONER_API_ENDPOINT, $this->practitionerRecord);
+        $actualResponse = $this->post(self::PRACTITIONER_API_ENDPOINT, $this->practitionerRecord);
         $this->assertEquals(201, $actualResponse->getStatusCode());
         $responseBody = json_decode($actualResponse->getBody(), true);
 
         $practitionerUuid = $responseBody["data"]["uuid"];
 
         $this->practitionerRecord["email"] = "help@pennfirm.com";
-        $actualResponse = $this->testClient->put(self::PRACTITIONER_API_ENDPOINT, $practitionerUuid, $this->practitionerRecord);
+        $actualResponse = $this->put(self::PRACTITIONER_API_ENDPOINT, $practitionerUuid, $this->practitionerRecord);
 
         $this->assertEquals(200, $actualResponse->getStatusCode());
         $responseBody = json_decode($actualResponse->getBody(), true);
@@ -125,11 +134,12 @@ class PractitionerApiTest extends TestCase
     }
 
     /**
-     * @covers ::getOne with an invalid pid
+     * with an invalid pid
      */
+    #[Test]
     public function testGetOneInvalidId()
     {
-        $actualResponse = $this->testClient->getOne(self::PRACTITIONER_API_ENDPOINT, "not-a-uuid");
+        $actualResponse = $this->getOne(self::PRACTITIONER_API_ENDPOINT, "not-a-uuid");
         $this->assertEquals(400, $actualResponse->getStatusCode());
 
         $responseBody = json_decode($actualResponse->getBody(), true);
@@ -139,18 +149,19 @@ class PractitionerApiTest extends TestCase
     }
 
     /**
-     * @covers ::getOne with a valid pid
+     * with a valid pid
      */
+    #[Test]
     public function testGetOne()
     {
-        $actualResponse = $this->testClient->post(self::PRACTITIONER_API_ENDPOINT, $this->practitionerRecord);
+        $actualResponse = $this->post(self::PRACTITIONER_API_ENDPOINT, $this->practitionerRecord);
         $this->assertEquals(201, $actualResponse->getStatusCode());
 
         $responseBody = json_decode($actualResponse->getBody(), true);
         $practitionerUuid = $responseBody["data"]["uuid"];
         $practitionerId = $responseBody["data"]["id"];
 
-        $actualResponse = $this->testClient->getOne(self::PRACTITIONER_API_ENDPOINT, $practitionerUuid);
+        $actualResponse = $this->getOne(self::PRACTITIONER_API_ENDPOINT, $practitionerUuid);
         $this->assertEquals(200, $actualResponse->getStatusCode());
 
         $responseBody = json_decode($actualResponse->getBody(), true);
@@ -162,13 +173,14 @@ class PractitionerApiTest extends TestCase
 
 
     /**
-     * @covers ::getAll
+     *
      */
+    #[Test]
     public function testGetAll()
     {
         $this->fixtureManager->installPractitionerFixtures();
 
-        $actualResponse = $this->testClient->get(self::PRACTITIONER_API_ENDPOINT, array("npi" => "0123456789"));
+        $actualResponse = $this->get(self::PRACTITIONER_API_ENDPOINT, array("npi" => "0123456789"));
         $this->assertEquals(200, $actualResponse->getStatusCode());
 
         $responseBody = json_decode($actualResponse->getBody(), true);
