@@ -12,6 +12,14 @@ use PHPUnit\Framework\Attributes\Test;
 use function microtime;
 use function register_shutdown_function;
 
+/**
+ * Code Coverage Helper responsible for managing php code coverage for the code base.
+ * @package   OpenEMR
+ * @link      http://www.open-emr.org
+ * @author    Stephen Nielson <snielson@discoverandchange.com>
+ * @license   https://github.com/openemr/openemr/blob/master/LICENSE GNU General Public License 3
+ *
+ */
 class CoverageHelper
 {
     public static function resolveCoverageId(string $baseClass, string|int $dataName): string
@@ -48,13 +56,22 @@ class CoverageHelper
             __DIR__ . '/../../../apis/dispatch.php',
             __DIR__ . '/../../../_rest_config.php',
             __DIR__ . '/../../../_rest_routes.inc.php',
+            __DIR__ . '/../../RestControllers/PatientRestController.php',
+            __DIR__ . '/../../RestControllers/FacilityRestController.php',
+            __DIR__ . '/../../RestControllers/PractitionerRestController.php',
+            __DIR__ . '/../../RestControllers/SMART/SMARTAuthorizationController.php',
+            __DIR__ . '/../../RestControllers/AuthorizationController.php',
+            __DIR__ . '/../../RestControllers/RestControllerHelper.php',
+            __DIR__ . '/../../../tests/Tests/Api/ApiTestCase.php',
+            __DIR__ . '/../../Services/PatientService.php',
+            __DIR__ . '/../../Services/FacilityService.php',
+            __DIR__ . '/../../Services/PractitionerService.php',
+            __DIR__ . '/../../Services/UserService.php',
+            __DIR__ . '/../../Services/TrustedUserService.php',
             __DIR__ . '/../../../oauth2/authorize.php',
             __DIR__ . '/../../../oauth2/provider/.well-known/discovery.php',
             __DIR__ . '/../../../oauth2/provider/jwk.php'
         ]);
-        $filter->includeDirectory(
-            __DIR__ . '/../../../src/'
-        );
         $coverage = new CodeCoverage((new Selector())->forLineCoverage($filter), $filter);
         // When the process is shut down, dump a partial coverage report in PHP format
         register_shutdown_function(function () use ($shutdownExportBasePath, $coverage): void {
@@ -110,7 +127,6 @@ class CoverageHelper
             $coverageId = $_SERVER['HTTP_X_COVERAGE_ID'] ?? '';
 
             if ($coverageId != null) {
-                error_log("Coverage id is " . $coverageId);
                 // TODO: expand to other code systems... excludeDirectory was deprecated so we have to provide a list of all the places we want to include
                 $coverage = CoverageHelper::createTargetedCodeCoverage($coverageRootPath);
                 $coverage->start($coverageId);
