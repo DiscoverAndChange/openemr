@@ -28,6 +28,17 @@ use OpenEMR\FHIR\SMART\SmartLaunchController;
 use OpenEMR\Events\RestApiExtend\RestApiCreateEvent;
 use OpenEMR\Telemetry\TelemetryService;
 use Psr\Http\Message\ResponseInterface;
+use OpenEMR\Tools\Coverage\CoverageHelper;
+
+if (getenv('ENABLE_COVERAGE')
+    && !empty(getenv('OPENEMR_COVERAGE_DIR'))) {
+    // setup our code coverage
+    ini_set('memory_limit', '1024M');
+    $basedir = __DIR__ . '/../' . getenv('OPENEMR_COVERAGE_DIR');
+    $coverage = CoverageHelper::createTargetedCodeCoverage($basedir);
+    $coverageId = CoverageHelper::getCurrentCoverageId();
+    $coverage->start($coverageId);
+}
 
 $gbl = RestConfig::GetInstance();
 $restRequest = new HttpRestRequest($gbl, $_SERVER);
@@ -255,7 +266,7 @@ if ($isLocalApi) {
     } elseif ($userRole == 'patient' && ($gbl::is_portal_request($resource) || $gbl::is_fhir_request($resource))) {
         $logger->debug("dispatch.php valid role and patient has access portal resource", ['resource' => $resource]);
         // good to go
-    } elseif ($userRole === 'system' && ($gbl::is_fhir_request($resource))) {
+    } elseif ($userRole === 'system' && ($gbl::is_fhir_request($resource) || $gbl::is_api_request($resource))) {
         $logger->debug("dispatch.php valid role and system has access to api/fhir resource", ['resource' => $resource]);
     } else {
         $logger->error("OpenEMR Error: api failed because user role does not have access to the resource", ['resource' => $resource, 'userRole' => $userRole]);
@@ -416,7 +427,7 @@ try {
         'eventType' => 'API',
         'eventLabel' => strtoupper($_SESSION['api'] ?? 'UNKNOWN'),
         'eventUrl' => $restRequest->getRequestMethod() . ' ' . $resource,
-        'eventTarget' => $userRole ?? 'UNKNOWN',
+        'eventTarget' => $userRole ?? 'Unknown',
     ]);
     exit;
 } catch (\Exception $e) {
