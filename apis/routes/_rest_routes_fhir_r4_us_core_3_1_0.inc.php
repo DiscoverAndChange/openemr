@@ -5890,9 +5890,8 @@ return array(
      *      )
      *  )
      */
-    "GET /fhir/metadata" => function () {
+    "GET /fhir/metadata" => function (\OpenEMR\Common\Http\HttpRestRequest $request) {
         $return = (new FhirMetaDataRestController())->getMetaData();
-        RestConfig::apiLog($return);
         return $return;
     },
 
