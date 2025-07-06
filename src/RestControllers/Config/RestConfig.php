@@ -1,25 +1,13 @@
 <?php
 
-/**
- * Useful globals class for Rest
- *
- * @package   OpenEMR
- * @link      http://www.open-emr.org
- * @author    Jerry Padgett <sjpadgett@gmail.com>
- * @author    Brady Miller <brady.g.miller@gmail.com>
- * @copyright Copyright (c) 2018-2020 Jerry Padgett <sjpadgett@gmail.com>
- * @copyright Copyright (c) 2019 Brady Miller <brady.g.miller@gmail.com>
- * @copyright Copyright (c) 2024 Care Management Solutions, Inc. <stephen.waite@cmsvt.com>
- * @license   https://github.com/openemr/openemr/blob/master/LICENSE GNU General Public License 3
- */
-
-//require_once __DIR__ . '/vendor/autoload.php';
+namespace OpenEMR\RestControllers\Config;
 
 use Laminas\HttpHandlerRunner\Emitter\SapiEmitter;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\ResourceServer;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7Server\ServerRequestCreator;
+use OpenEMR\Common\Acl\AccessDeniedException;
 use OpenEMR\Common\Acl\AclMain;
 use OpenEMR\Common\Auth\OpenIDConnect\Repositories\AccessTokenRepository;
 use OpenEMR\Common\Http\HttpRestRequest;
@@ -30,6 +18,7 @@ use OpenEMR\FHIR\Config\ServerConfig;
 use OpenEMR\Services\TrustedUserService;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 
 // also a handy place to add utility methods
@@ -316,9 +305,10 @@ class RestConfig
         $result = AclMain::aclCheckCore($section, $value, $user, $aclPermission);
         if (!$result) {
             if (!self::$notRestCall) {
-                http_response_code(401);
+                throw HttpException::fromStatusCode(403, "Organization policy does not have permit access resource");
+            } else {
+                exit(); // not sure why we exit here, but this is how it was before
             }
-            exit();
         }
     }
 
@@ -407,52 +397,54 @@ class RestConfig
 
     public static function apiLog($response = '', $requestBody = ''): void
     {
-        $logResponse = $response;
-
-        // only log when using standard api calls (skip when using local api calls from within OpenEMR)
-        //  and when api log option is set
-        if (!$GLOBALS['is_local_api'] && !self::$notRestCall && $GLOBALS['api_log_option']) {
-            if ($GLOBALS['api_log_option'] == 1) {
-                // Do not log the response and requestBody
-                $logResponse = '';
-                $requestBody = '';
-            }
-            if ($response instanceof ResponseInterface) {
-                if (self::shouldLogResponse($response)) {
-                    $body = $response->getBody();
-                    $logResponse = $body->getContents();
-                    $body->rewind();
-                } else {
-                    $logResponse = 'Content not application/json - Skip binary data';
-                }
-            } else {
-                $logResponse = (!empty($logResponse)) ? json_encode($response) : '';
-            }
-
-            // convert pertinent elements to json
-            $requestBody = (!empty($requestBody)) ? json_encode($requestBody) : '';
-
-            // prepare values and call the log function
-            $event = 'api';
-            $category = 'api';
-            $method = $_SERVER['REQUEST_METHOD'];
-            $url = $_SERVER['REQUEST_URI'];
-            $patientId = (int)($_SESSION['pid'] ?? 0);
-            $userId = (int)($_SESSION['authUserID'] ?? 0);
-            $api = [
-                'user_id' => $userId,
-                'patient_id' => $patientId,
-                'method' => $method,
-                'request' => $GLOBALS['resource'],
-                'request_url' => $url,
-                'request_body' => $requestBody,
-                'response' => $logResponse
-            ];
-            if ($patientId === 0) {
-                $patientId = null; //entries in log table are blank for no patient_id, whereas in api_log are 0, which is why above $api value uses 0 when empty
-            }
-            EventAuditLogger::instance()->recordLogItem(1, $event, ($_SESSION['authUser'] ?? ''), ($_SESSION['authProvider'] ?? ''), 'api log', $patientId, $category, 'open-emr', null, null, '', $api);
-        }
+        // for now we just return until we can refactor the api authorization pieces...
+        return;
+//        $logResponse = $response;
+//
+//        // only log when using standard api calls (skip when using local api calls from within OpenEMR)
+//        //  and when api log option is set
+//        if (!$GLOBALS['is_local_api'] && !self::$notRestCall && $GLOBALS['api_log_option']) {
+//            if ($GLOBALS['api_log_option'] == 1) {
+//                // Do not log the response and requestBody
+//                $logResponse = '';
+//                $requestBody = '';
+//            }
+//            if ($response instanceof ResponseInterface) {
+//                if (self::shouldLogResponse($response)) {
+//                    $body = $response->getBody();
+//                    $logResponse = $body->getContents();
+//                    $body->rewind();
+//                } else {
+//                    $logResponse = 'Content not application/json - Skip binary data';
+//                }
+//            } else {
+//                $logResponse = (!empty($logResponse)) ? json_encode($response) : '';
+//            }
+//
+//            // convert pertinent elements to json
+//            $requestBody = (!empty($requestBody)) ? json_encode($requestBody) : '';
+//
+//            // prepare values and call the log function
+//            $event = 'api';
+//            $category = 'api';
+//            $method = $_SERVER['REQUEST_METHOD'];
+//            $url = $_SERVER['REQUEST_URI'];
+//            $patientId = (int)($_SESSION['pid'] ?? 0);
+//            $userId = (int)($_SESSION['authUserID'] ?? 0);
+//            $api = [
+//                'user_id' => $userId,
+//                'patient_id' => $patientId,
+//                'method' => $method,
+//                'request' => $GLOBALS['resource'],
+//                'request_url' => $url,
+//                'request_body' => $requestBody,
+//                'response' => $logResponse
+//            ];
+//            if ($patientId === 0) {
+//                $patientId = null; //entries in log table are blank for no patient_id, whereas in api_log are 0, which is why above $api value uses 0 when empty
+//            }
+//            EventAuditLogger::instance()->recordLogItem(1, $event, ($_SESSION['authUser'] ?? ''), ($_SESSION['authProvider'] ?? ''), 'api log', $patientId, $category, 'open-emr', null, null, '', $api);
+//        }
     }
 
     public static function emitResponse($response, $build = false): void
@@ -546,11 +538,11 @@ class RestConfig
                 $restRequest->setPatientUuidString($patientUuid);
             } else {
                 (new SystemLogger())->error("OpenEMR Error: api had patient launch scope but user did not have access to patient uuid."
-                . " Resources restricted with patient scopes will not return results");
+                    . " Resources restricted with patient scopes will not return results");
             }
         } else {
             (new SystemLogger())->error("OpenEMR Error: api had patient launch scope but no patient was set in the "
-            . " session cache.  Resources restricted with patient scopes will not return results");
+                . " session cache.  Resources restricted with patient scopes will not return results");
         }
         return $restRequest;
     }
@@ -592,7 +584,3 @@ class RestConfig
     {
     }
 }
-
-// Include our routes and init routes global
-//
-require_once(__DIR__ . "/_rest_routes.inc.php");
