@@ -13,7 +13,7 @@
  * @license   https://github.com/openemr/openemr/blob/master/LICENSE GNU General Public License 3
  */
 
-require_once __DIR__ . '/vendor/autoload.php';
+//require_once __DIR__ . '/vendor/autoload.php';
 
 use Laminas\HttpHandlerRunner\Emitter\SapiEmitter;
 use League\OAuth2\Server\Exception\OAuthServerException;

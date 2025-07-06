@@ -399,7 +399,7 @@ class AuthorizationController
             return;
         }
 
-        $scopeRepo = new ScopeRepository($this->restConfig);
+        $scopeRepo = new ScopeRepository();
         $scopeRepo->setRequestScopes($scopeString);
         foreach ($requestScopes as $scope) {
             $validScope = $scopeRepo->getScopeEntityByIdentifier($scope);
@@ -593,7 +593,7 @@ class AuthorizationController
     public function getAuthorizationServer($includeAuthGrantRefreshToken = true): AuthorizationServer
     {
         $protectedClaims = ['profile', 'email', 'address', 'phone'];
-        $scopeRepository = new ScopeRepository($this->restConfig);
+        $scopeRepository = new ScopeRepository();
         $claims = $scopeRepository->getSupportedClaims();
         $customClaim = [];
         foreach ($claims as $claim) {
@@ -624,7 +624,7 @@ class AuthorizationController
         $authServer = new AuthorizationServer(
             new ClientRepository(),
             new AccessTokenRepository(),
-            new ScopeRepository($this->restConfig),
+            new ScopeRepository(),
             new CryptKey($this->privateKey, $this->passphrase),
             $this->oaEncryptionKey,
             $responseType
@@ -1425,6 +1425,7 @@ class AuthorizationController
 
     /**
      * Returns the authentication server token Url endpoint
+     * @deprecated Use ServerConfig::getTokenUrl()
      * @return string
      */
     public function getTokenUrl()
@@ -1461,6 +1462,7 @@ class AuthorizationController
 
     /**
      * Returns the authentication server authorization url to use for oauth authentication
+     * @deprecated Use ServerConfig::getAuthorizeUrl()
      * @return string
      */
     public function getAuthorizeUrl()
@@ -1479,6 +1481,7 @@ class AuthorizationController
 
     /**
      * Returns the authentication server registration url to use for client app / api registration
+     * @deprecated Use ServerConfig::getIntrospectionUrl()
      * @return string
      */
     public function getRegistrationUrl()
@@ -1497,6 +1500,7 @@ class AuthorizationController
 
     /**
      * Returns the authentication server introspection url to use for checking tokens
+     * @deprecated Use ServerConfig::getIntrospectionUrl()
      * @return string
      */
     public function getIntrospectionUrl()
