@@ -31,6 +31,7 @@ use OpenEMR\RestControllers\FHIR\FhirMetaDataRestController;
 use OpenEMR\RestControllers\FHIR\Operations\FhirOperationExportRestController;
 use OpenEMR\RestControllers\FHIR\Operations\FhirOperationDocRefRestController;
 use OpenEMR\RestControllers\FHIR\Operations\FhirOperationDefinitionRestController;
+use OpenEMR\RestControllers\SMART\SMARTConfigurationController;
 
 // Note that the fhir route includes both user role and patient role
 //  (there is a mechanism in place to ensure patient role is binded
@@ -5907,8 +5908,7 @@ return array(
      *  )
      */
     "GET /fhir/.well-known/smart-configuration" => function () {
-        $authController = new \OpenEMR\RestControllers\AuthorizationController();
-        $return = (new \OpenEMR\RestControllers\SMART\SMARTConfigurationController($authController))->getConfig();
+        $return = (new SMARTConfigurationController())->getConfig();
         RestConfig::apiLog($return);
         return $return;
     },
