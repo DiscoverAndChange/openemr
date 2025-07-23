@@ -30,10 +30,10 @@ return RectorConfig::configure()
     ])
     // uncomment to reach your current PHP version
     // ->withPhpSets()
-    ->withPhpVersion(PhpVersion::PHP_81)
-    ->withTypeCoverageLevel(3)
-    ->withDeadCodeLevel(3)
-    ->withCodeQualityLevel(3)
+    ->withPhpVersion(PhpVersion::PHP_82)
+    ->withTypeCoverageLevel(5)
+    ->withDeadCodeLevel(5)
+    ->withCodeQualityLevel(5)
     ->withCache(
         // ensure file system caching is used instead of in-memory
         cacheClass: FileCacheStorage::class,
