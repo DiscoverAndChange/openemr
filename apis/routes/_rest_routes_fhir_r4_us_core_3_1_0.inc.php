@@ -51,6 +51,7 @@ use OpenEMR\RestControllers\FHIR\Operations\FhirOperationExportRestController;
 use OpenEMR\RestControllers\FHIR\Operations\FhirOperationDocRefRestController;
 use OpenEMR\RestControllers\FHIR\Operations\FhirOperationDefinitionRestController;
 use OpenEMR\RestControllers\SMART\SMARTConfigurationController;
+use OpenEMR\Common\Acl\AccessDeniedException;
 
 // Note that the fhir route includes both user role and patient role
 //  (there is a mechanism in place to ensure patient role is binded
