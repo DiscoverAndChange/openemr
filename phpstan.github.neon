@@ -17652,10 +17652,6 @@ parameters:
     identifier: nullCoalesce.variable
     count: 2
     path: src/Common/Auth/OpenIDConnect/Repositories/RefreshTokenRepository.php
-  - message: '#^Variable \$scopesByResource on left side of \?\? is never defined\.$#'
-    identifier: nullCoalesce.variable
-    count: 1
-    path: src/Common/Auth/OpenIDConnect/Repositories/ScopeRepository.php
   - message: '#^Variable \$userIdBinary in empty\(\) always exists and is not falsy\.$#'
     identifier: empty.variable
     count: 2
@@ -17716,10 +17712,6 @@ parameters:
     identifier: variable.undefined
     count: 1
     path: src/Common/Logging/EventAuditLogger.php
-  - message: '#^Variable \$logLevel in empty\(\) is never defined\.$#'
-    identifier: empty.variable
-    count: 1
-    path: src/Common/Logging/SystemLogger.php
   - message: '#^Access to an undefined property OpenEMR\\Common\\ORDataObject\\ContactAddress\:\:\$use\.$#'
     identifier: property.notFound
     count: 1
