@@ -3,7 +3,10 @@
 namespace OpenEMR\Tests\Api;
 
 use GuzzleHttp\Client;
+use Monolog\Level;
 use OpenEMR\Common\Auth\OpenIDConnect\Repositories\ClientRepository;
+use OpenEMR\Common\Logging\SystemLogger;
+use Psr\Http\Message\ResponseInterface;
 
 /**
  * A simple and lightweight test client based off of GuzzleHttp, used in Rest Controller/API test cases.
@@ -118,6 +121,21 @@ class ApiTestClient
             $this->id_token = $responseBody->id_token;
             $this->access_token = $responseBody->access_token;
             $this->refresh_token = $responseBody->refresh_token ?? null;
+        } else {
+            $errorMessage = "Authorization failed with status code: " . $authResponse->getStatusCode();
+            if ($authResponse->getBody()) {
+                $errorBody = json_decode($authResponse->getBody());
+                if (isset($errorBody->error)) {
+                    $errorMessage .= " - " . $errorBody->error;
+                }
+                if (isset($errorBody->error_description)) {
+                    $errorMessage .= ": " . $errorBody->error_description;
+                }
+                if (isset($errorBody->hint)) {
+                    $errorMessage .= ": " . $errorBody->hint;
+                }
+            }
+            error_log($errorMessage);
         }
 
         return $authResponse;
@@ -151,6 +169,8 @@ class ApiTestClient
         $this->client_secret = $clientResponseBody->client_secret;
         // we need to enable the app otherwise we can't use it.
         $clientRepository = new ClientRepository();
+        $logger = new SystemLogger(Level::Emergency); // suppress logging
+        $clientRepository->setSystemLogger($logger);
         $client = $clientRepository->getClientEntity($this->client_id);
         $clientRepository->saveIsEnabled($client, true);
     }
@@ -239,7 +259,7 @@ class ApiTestClient
      * @param $body - The POST request body (array)
      * @return $postResponse - HTTP response
      */
-    public function post($url, $body, $json = true)
+    public function post($url, $body, $json = true): ResponseInterface
     {
         if ($json) {
             $postResponse = $this->client->post($url, [

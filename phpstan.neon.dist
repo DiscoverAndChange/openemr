@@ -5,7 +5,6 @@ parameters:
   level: 1
   paths:
   - Documentation
-  - _rest_config.php
   - _rest_routes.inc.php
   - acl_upgrade.php
   - admin.php
