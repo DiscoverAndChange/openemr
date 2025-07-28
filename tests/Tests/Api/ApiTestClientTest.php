@@ -8,14 +8,12 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Test cases for the OpenEMR Api Test Client
- * NOTE: currently disabled (by naming convention) until work is completed to support running as part of Travis CI
- * @coversDefaultClass OpenEMR\Tests\Api\ApiTestClient
+ *
  * @package   OpenEMR
  * @link      http://www.open-emr.org
  * @author    Dixon Whitmire <dixonwh@gmail.com>
  * @copyright Copyright (c) 2020 Dixon Whitmire <dixonwh@gmail.com>
  * @license   https://github.com/openemr/openemr/blob/master/LICENSE GNU General Public License 3
- *
  */
 class ApiTestClientTest extends TestCase
 {
@@ -38,9 +36,6 @@ class ApiTestClientTest extends TestCase
         $this->client = new ApiTestClient($baseUrl, false);
     }
 
-    /**
-     * @cover ::getConfig with a null value
-     */
     public function testGetConfigWithNull(): void
     {
         $this->client->setAuthToken(ApiTestClient::OPENEMR_AUTH_ENDPOINT);
@@ -51,9 +46,6 @@ class ApiTestClientTest extends TestCase
         $this->client->cleanupClient();
     }
 
-    /**
-     * @cover ::getConfig for HTTP client settings
-     */
     public function testGetConfig(): void
     {
         $this->client->setAuthToken(ApiTestClient::OPENEMR_AUTH_ENDPOINT);
@@ -71,7 +63,6 @@ class ApiTestClientTest extends TestCase
 
     /**
      * Tests the automated testing when invalid credentials arguments are provided
-     * @covers ::setAuthToken with invalid credential argument
      */
     public function testApiAuthInvalidArgs(): void
     {
@@ -95,7 +86,6 @@ class ApiTestClientTest extends TestCase
     }
     /**
      * Tests OpenEMR OAuth when invalid client id is provided
-     * @covers ::setAuthToken with invalid credentials
      */
     public function testApiAuthInvalidClientId(): void
     {
@@ -111,7 +101,6 @@ class ApiTestClientTest extends TestCase
 
     /**
      * Tests OpenEMR OAuth when invalid user credentials are provided
-     * @covers ::setAuthToken with invalid credentials
      */
     public function testApiAuthInvalidUserCredentials(): void
     {
@@ -127,8 +116,6 @@ class ApiTestClientTest extends TestCase
 
     /**
      * Tests OpenEMR API Auth for the REST and FHIR APIs
-     * @cover ::setAuthToken
-     * @cover ::removeAuthToken
      */
     public function testApiAuth(): void
     {
@@ -154,8 +141,6 @@ class ApiTestClientTest extends TestCase
 
     /**
      * Tests OpenEMR API Auth for the REST and FHIR APIs (test refresh request after the auth)
-     * @cover ::setAuthToken
-     * @cover ::removeAuthToken
      */
     public function testApiAuthThenRefresh(): void
     {
@@ -206,8 +191,6 @@ class ApiTestClientTest extends TestCase
 
     /**
      * Tests OpenEMR API Auth for the REST and FHIR APIs (test refresh request after the auth with bad refresh token)
-     * @cover ::setAuthToken
-     * @cover ::removeAuthToken
      */
     public function testApiAuthThenBadRefresh(): void
     {
@@ -549,9 +532,6 @@ class ApiTestClientTest extends TestCase
         $this->client->cleanupClient();
     }
 
-    /**
-     * @cover ::removeAuthToken when an auth token is not present
-     */
     public function testRemoveAuthTokenNoToken(): void
     {
         $this->client->removeAuthToken();

@@ -10,7 +10,6 @@ use OpenEMR\FHIR\R4\FHIRResource\FHIRBundle\FHIRBundleEntry;
 /**
  * FHIR PractitionerRole Service
  *
- * @coversDefaultClass OpenEMR\Services\FHIR\FhirPractitionerRoleService
  * @package   OpenEMR
  * @link      http://www.open-emr.org
  * @author    Yash Bothra <yashrajbothra786@gmail.com>

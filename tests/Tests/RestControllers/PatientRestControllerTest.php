@@ -11,9 +11,6 @@ use Symfony\Component\HttpFoundation\InputBag;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\ServerBag;
 
-/**
- * @coversDefaultClass OpenEMR\RestControllers\PatientRestController
- */
 class PatientRestControllerTest extends TestCase
 {
     const PATIENT_API_URL = "/apis/api/patient";
@@ -54,9 +51,6 @@ class PatientRestControllerTest extends TestCase
         $this->fixtureManager->removePatientFixtures();
     }
 
-    /**
-     * @cover ::post with invalid data
-     */
     public function testPostInvalidData(): void
     {
         unset($this->patientData["fname"]);
@@ -68,9 +62,6 @@ class PatientRestControllerTest extends TestCase
         $this->assertEquals(0, count($actualResult["data"]));
     }
 
-    /**
-     * @cover ::post with valid data
-     */
     public function testPost(): void
     {
         $response = $this->patientController->post($this->patientData, $this->createMock(HttpRestRequest::class));
@@ -85,9 +76,6 @@ class PatientRestControllerTest extends TestCase
         $this->assertGreaterThan(0, $patientPid);
     }
 
-    /**
-     * @cover ::put with invalid data
-     */
     public function testPutInvalidData(): void
     {
         $response = $this->patientController->post($this->patientData, $this->createMock(HttpRestRequest::class));
@@ -106,9 +94,6 @@ class PatientRestControllerTest extends TestCase
         $this->assertEquals(0, count($actualResult["data"]));
     }
 
-    /**
-     * @cover ::put with valid data
-     */
     public function testPut(): void
     {
         $response = $this->patientController->post($this->patientData, $this->createMock(HttpRestRequest::class));
@@ -131,9 +116,6 @@ class PatientRestControllerTest extends TestCase
         $this->assertEquals($this->patientData["phone_home"], $updatedPatient["phone_home"]);
     }
 
-    /**
-     * @cover ::getOne with an invalid uuid
-     */
     public function testGetOneInvalidUuid(): void
     {
         $response = $this->patientController->getOne("not-a-uuid", $this->createMock(HttpRestRequest::class));
@@ -144,9 +126,6 @@ class PatientRestControllerTest extends TestCase
         $this->assertEquals([], $actualResult["data"]);
     }
 
-    /**
-     * @cover ::getOne with a valid uuid
-     */
     public function testGetOne(): void
     {
         // create a record
@@ -162,9 +141,6 @@ class PatientRestControllerTest extends TestCase
         $this->assertEquals($postedUuid, $actualResult["data"]["uuid"]);
     }
 
-    /**
-     * @cover ::getAll
-     */
     public function testGetAll(): void
     {
         $this->fixtureManager->installPatientFixtures();

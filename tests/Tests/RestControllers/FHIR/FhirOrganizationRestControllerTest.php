@@ -13,8 +13,6 @@ use OpenEMR\Tests\Fixtures\FacilityFixtureManager;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * @coversDefaultClass \OpenEMR\RestControllers\FHIR\FhirOrganizationRestController
- *
  * @package   OpenEMR
  * @link      http://www.open-emr.org
  * @author    Yash Bothra <yashrajbothra786gmail.com>
@@ -56,9 +54,6 @@ class FhirOrganizationRestControllerTest extends TestCase
         $this->fixtureManager->removeFixtures();
     }
 
-    /**
-     * @cover ::post with valid data
-     */
     public function testPost(): void
     {
         $actualResult = $this->fhirOrganizationController->post($this->fhirFixture);
@@ -68,9 +63,6 @@ class FhirOrganizationRestControllerTest extends TestCase
         $this->assertNotEmpty($contents['uuid']);
     }
 
-    /**
-     * @cover ::post with invalid data
-     */
     public function testInvalidPost(): void
     {
         unset($this->fhirFixture['name']);
@@ -81,9 +73,6 @@ class FhirOrganizationRestControllerTest extends TestCase
         $this->assertGreaterThan(0, count($contents['validationErrors']));
     }
 
-    /**
-     * @cover ::patch with valid data
-     */
     public function testPatch(): void
     {
         $actualResult = $this->fhirOrganizationController->post($this->fhirFixture);
@@ -97,9 +86,6 @@ class FhirOrganizationRestControllerTest extends TestCase
         $this->assertEquals($fhirId, $contents['id']);
     }
 
-    /**
-     * @cover ::patch with valid data
-     */
     public function testInvalidPatch(): void
     {
         $this->fhirOrganizationController->post($this->fhirFixture);
