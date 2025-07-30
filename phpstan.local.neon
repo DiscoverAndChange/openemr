@@ -11640,10 +11640,6 @@ parameters:
     identifier: variable.undefined
     count: 2
     path: interface/modules/custom_modules/oe-module-faxsms/library/utility.php
-  - message: '#^Variable \$pid might not be defined\.$#'
-    identifier: variable.undefined
-    count: 1
-    path: interface/modules/custom_modules/oe-module-faxsms/messageUI.php
   - message: '#^Variable \$tabTitle on left side of \?\? always exists and is not nullable\.$#'
     identifier: nullCoalesce.variable
     count: 1
@@ -12982,10 +12978,6 @@ parameters:
     path: interface/patient_file/report/custom_report.php
   - message: '#^Function cms_portal_call not found\.$#'
     identifier: function.notFound
-    count: 1
-    path: interface/patient_file/report/custom_report.php
-  - message: '#^Function postToGet invoked with 1 parameter, 2 required\.$#'
-    identifier: arguments.count
     count: 1
     path: interface/patient_file/report/custom_report.php
   - message: '#^Variable \$ISSUE_TYPES might not be defined\.$#'
@@ -17244,10 +17236,6 @@ parameters:
     identifier: variable.undefined
     count: 1
     path: portal/report/pat_ledger.php
-  - message: '#^Function postToGet invoked with 1 parameter, 2 required\.$#'
-    identifier: arguments.count
-    count: 1
-    path: portal/report/portal_custom_report.php
   - message: '#^Variable \$ISSUE_TYPES might not be defined\.$#'
     identifier: variable.undefined
     count: 1
