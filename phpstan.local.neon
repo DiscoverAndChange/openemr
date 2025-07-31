@@ -1,4 +1,8 @@
 parameters:
+  excludePaths:
+   - rector.php
+   - node_modules (?)
+   - ccdaservice/node_modules (?)
   ignoreErrors:
   - message: '#^Variable \$web_root might not be defined\.$#'
     identifier: variable.undefined
@@ -12248,14 +12252,6 @@ parameters:
     identifier: variable.undefined
     count: 2
     path: interface/orders/patient_match_dialog.php
-  - message: '#^Function thisLineItem invoked with 3 parameters, 8\-9 required\.$#'
-    identifier: arguments.count
-    count: 1
-    path: interface/orders/pending_followup.php
-  - message: '#^Function thisLineItem invoked with 1 parameter, 8\-9 required\.$#'
-    identifier: arguments.count
-    count: 1
-    path: interface/orders/pending_orders.php
   - message: '#^Variable \$srcdir might not be defined\.$#'
     identifier: variable.undefined
     count: 2
