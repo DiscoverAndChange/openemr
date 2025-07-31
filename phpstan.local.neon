@@ -12872,10 +12872,6 @@ parameters:
     identifier: variable.undefined
     count: 2
     path: interface/patient_file/pos_checkout_ippf.php
-  - message: '#^Function receiptDetailLine invoked with 4 parameters, 5\-10 required\.$#'
-    identifier: arguments.count
-    count: 3
-    path: interface/patient_file/pos_checkout_normal.php
   - message: '#^Variable \$amount might not be defined\.$#'
     identifier: variable.undefined
     count: 1
