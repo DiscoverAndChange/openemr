@@ -54,4 +54,4 @@ jobs:
     - name: PHPStan Diagnose
       run: php -d memory_limit=8G vendor/bin/phpstan diagnose --debug
     - name: PHPStan Analyze
-      run: php -d memory_limit=8G vendor/bin/phpstan analyze --error-format=github
+      run: php -d memory_limit=8G vendor/bin/phpstan analyze --debug --error-format=github
