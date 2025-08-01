@@ -4,17 +4,16 @@ namespace OpenEMR\Tests\Api;
 
 use OpenEMR\Tests\Api\ApiTestClient;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Test cases for the OpenEMR Api Test Client
- * NOTE: currently disabled (by naming convention) until work is completed to support running as part of Travis CI
- * @coversDefaultClass OpenEMR\Tests\Api\ApiTestClient
+ *
  * @package   OpenEMR
  * @link      http://www.open-emr.org
  * @author    Dixon Whitmire <dixonwh@gmail.com>
  * @copyright Copyright (c) 2020 Dixon Whitmire <dixonwh@gmail.com>
  * @license   https://github.com/openemr/openemr/blob/master/LICENSE GNU General Public License 3
- *
  */
 class ApiTestClientTest extends TestCase
 {
@@ -37,9 +36,6 @@ class ApiTestClientTest extends TestCase
         $this->client = new ApiTestClient($baseUrl, false);
     }
 
-    /**
-     * @cover ::getConfig with a null value
-     */
     public function testGetConfigWithNull(): void
     {
         $this->client->setAuthToken(ApiTestClient::OPENEMR_AUTH_ENDPOINT);
@@ -50,9 +46,6 @@ class ApiTestClientTest extends TestCase
         $this->client->cleanupClient();
     }
 
-    /**
-     * @cover ::getConfig for HTTP client settings
-     */
     public function testGetConfig(): void
     {
         $this->client->setAuthToken(ApiTestClient::OPENEMR_AUTH_ENDPOINT);
@@ -70,7 +63,6 @@ class ApiTestClientTest extends TestCase
 
     /**
      * Tests the automated testing when invalid credentials arguments are provided
-     * @covers ::setAuthToken with invalid credential argument
      */
     public function testApiAuthInvalidArgs(): void
     {
@@ -94,7 +86,6 @@ class ApiTestClientTest extends TestCase
     }
     /**
      * Tests OpenEMR OAuth when invalid client id is provided
-     * @covers ::setAuthToken with invalid credentials
      */
     public function testApiAuthInvalidClientId(): void
     {
@@ -110,7 +101,6 @@ class ApiTestClientTest extends TestCase
 
     /**
      * Tests OpenEMR OAuth when invalid user credentials are provided
-     * @covers ::setAuthToken with invalid credentials
      */
     public function testApiAuthInvalidUserCredentials(): void
     {
@@ -126,8 +116,6 @@ class ApiTestClientTest extends TestCase
 
     /**
      * Tests OpenEMR API Auth for the REST and FHIR APIs
-     * @cover ::setAuthToken
-     * @cover ::removeAuthToken
      */
     public function testApiAuth(): void
     {
@@ -153,8 +141,6 @@ class ApiTestClientTest extends TestCase
 
     /**
      * Tests OpenEMR API Auth for the REST and FHIR APIs (test refresh request after the auth)
-     * @cover ::setAuthToken
-     * @cover ::removeAuthToken
      */
     public function testApiAuthThenRefresh(): void
     {
@@ -205,8 +191,6 @@ class ApiTestClientTest extends TestCase
 
     /**
      * Tests OpenEMR API Auth for the REST and FHIR APIs (test refresh request after the auth with bad refresh token)
-     * @cover ::setAuthToken
-     * @cover ::removeAuthToken
      */
     public function testApiAuthThenBadRefresh(): void
     {
@@ -346,7 +330,6 @@ class ApiTestClientTest extends TestCase
 
         // remove the route scope
         $scopeCustom = str_replace(self::API_ROUTE_SCOPE, '', ApiTestClient::ALL_SCOPES);
-
         $refreshBody = [
             "grant_type" => "refresh_token",
             "client_id" => $this->client->getClientId(),
@@ -375,7 +358,7 @@ class ApiTestClientTest extends TestCase
         $this->client->setBearer($responseBody->access_token);
 
         $actualResponse = $this->client->get(self::EXAMPLE_API_ENDPOINT);
-        $this->assertEquals(401, $actualResponse->getStatusCode());
+        $this->assertEquals(Response::HTTP_FORBIDDEN, $actualResponse->getStatusCode());
         $this->client->removeAuthToken();
         $actualHeaders = $this->client->getConfig("headers");
         $this->assertArrayNotHasKey("Authorization", $actualHeaders);
@@ -449,23 +432,24 @@ class ApiTestClientTest extends TestCase
     public function testApiAuthExampleUseThenRevoke(): void
     {
         $actualValue = $this->client->setAuthToken(ApiTestClient::OPENEMR_AUTH_ENDPOINT);
-        $this->assertEquals(200, $actualValue->getStatusCode());
+        $this->assertEquals(Response::HTTP_OK, $actualValue->getStatusCode());
         $this->assertGreaterThan(10, strlen($this->client->getIdToken()));
         $this->assertGreaterThan(10, strlen($this->client->getAccessToken()));
         $this->assertGreaterThan(10, strlen($this->client->getRefreshToken()));
 
         $actualResponse = $this->client->get(self::EXAMPLE_API_ENDPOINT);
-        $this->assertEquals(200, $actualResponse->getStatusCode());
+        $this->assertEquals(Response::HTTP_OK, $actualResponse->getStatusCode());
         $id_token = json_decode($actualValue->getBody())->id_token;
         $this->assertGreaterThan(10, strlen($id_token));
 
         $actualResponse = $this->client->cleanupRevokeAuth();
-        $this->assertEquals(200, $actualResponse->getStatusCode());
+        $this->assertEquals(Response::HTTP_OK, $actualResponse->getStatusCode());
         $this->assertEquals("You have been signed out. Thank you.", $actualResponse->getBody());
 
         $actualResponse = $this->client->cleanupRevokeAuth();
-        $this->assertEquals(200, $actualResponse->getStatusCode());
-        $this->assertEquals("You are currently not signed in.", $actualResponse->getBody());
+        $this->assertEquals(Response::HTTP_UNAUTHORIZED, $actualResponse->getStatusCode());
+        $responseBody = json_decode($actualResponse->getBody(), true);
+        $this->assertEquals("You are currently not signed in.", $responseBody['message']);
 
         $actualResponse = $this->client->get(self::EXAMPLE_API_ENDPOINT);
         $this->assertEquals(400, $actualResponse->getStatusCode());
@@ -483,7 +467,7 @@ class ApiTestClientTest extends TestCase
     public function testApiAuthExampleUseBadSite(): void
     {
         $actualValue = $this->client->setAuthToken(ApiTestClient::OPENEMR_AUTH_ENDPOINT);
-        $this->assertEquals(200, $actualValue->getStatusCode());
+        $this->assertEquals(Response::HTTP_OK, $actualValue->getStatusCode());
         $this->assertGreaterThan(10, strlen($this->client->getIdToken()));
         $this->assertGreaterThan(10, strlen($this->client->getAccessToken()));
         $this->assertGreaterThan(10, strlen($this->client->getRefreshToken()));
@@ -504,13 +488,13 @@ class ApiTestClientTest extends TestCase
     public function testApiAuthExampleUseBadToken(): void
     {
         $actualValue = $this->client->setAuthToken(ApiTestClient::OPENEMR_AUTH_ENDPOINT);
-        $this->assertEquals(200, $actualValue->getStatusCode());
+        $this->assertEquals(Response::HTTP_OK, $actualValue->getStatusCode());
         $this->assertGreaterThan(10, strlen($this->client->getIdToken()));
         $this->assertGreaterThan(10, strlen($this->client->getAccessToken()));
         $this->assertGreaterThan(10, strlen($this->client->getRefreshToken()));
 
         $actualResponse = $this->client->get(self::EXAMPLE_API_ENDPOINT);
-        $this->assertEquals(200, $actualResponse->getStatusCode());
+        $this->assertEquals(Response::HTTP_OK, $actualResponse->getStatusCode());
         $this->client->removeAuthToken();
         $actualHeaders = $this->client->getConfig("headers");
         $this->assertArrayNotHasKey("Authorization", $actualHeaders);
@@ -529,13 +513,13 @@ class ApiTestClientTest extends TestCase
     public function testApiAuthExampleUseEmptyToken(): void
     {
         $actualValue = $this->client->setAuthToken(ApiTestClient::OPENEMR_AUTH_ENDPOINT);
-        $this->assertEquals(200, $actualValue->getStatusCode());
+        $this->assertEquals(Response::HTTP_OK, $actualValue->getStatusCode());
         $this->assertGreaterThan(10, strlen($this->client->getIdToken()));
         $this->assertGreaterThan(10, strlen($this->client->getAccessToken()));
         $this->assertGreaterThan(10, strlen($this->client->getRefreshToken()));
 
         $actualResponse = $this->client->get(self::EXAMPLE_API_ENDPOINT);
-        $this->assertEquals(200, $actualResponse->getStatusCode());
+        $this->assertEquals(Response::HTTP_OK, $actualResponse->getStatusCode());
         $this->client->removeAuthToken();
         $actualHeaders = $this->client->getConfig("headers");
         $this->assertArrayNotHasKey("Authorization", $actualHeaders);
@@ -547,9 +531,6 @@ class ApiTestClientTest extends TestCase
         $this->client->cleanupClient();
     }
 
-    /**
-     * @cover ::removeAuthToken when an auth token is not present
-     */
     public function testRemoveAuthTokenNoToken(): void
     {
         $this->client->removeAuthToken();
@@ -560,7 +541,7 @@ class ApiTestClientTest extends TestCase
     public function testApiAuthPublicClientDoesNotReturnRefreshToken(): void
     {
         $actualValue = $this->client->setAuthToken(ApiTestClient::OPENEMR_AUTH_ENDPOINT, [], 'public');
-        $this->assertEquals(200, $actualValue->getStatusCode(), "public client authorization should return valid status code");
+        $this->assertEquals(Response::HTTP_OK, $actualValue->getStatusCode(), "public client authorization should return valid status code");
         $this->assertNull($this->client->getRefreshToken(), "Refresh token should be empty for public client");
         $this->assertNotNull($this->client->getAccessToken(), "Access token should be populated");
         $this->assertNotNull($this->client->getIdToken(), "Id token should be populated");
