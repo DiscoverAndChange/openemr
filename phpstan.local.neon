@@ -13204,10 +13204,6 @@ parameters:
     identifier: variable.undefined
     count: 1
     path: interface/patient_file/summary/demographics.php
-  - message: '#^Variable \$pid might not be defined\.$#'
-    identifier: variable.undefined
-    count: 48
-    path: interface/patient_file/summary/demographics.php
   - message: '#^Variable \$query might not be defined\.$#'
     identifier: variable.undefined
     count: 1
@@ -13716,14 +13712,6 @@ parameters:
     identifier: variable.undefined
     count: 1
     path: interface/reports/appointments_report.php
-  - message: '#^Variable \$csvfields might not be defined\.$#'
-    identifier: variable.undefined
-    count: 1
-    path: interface/reports/appointments_report.php
-  - message: '#^Variable \$rems might not be defined\.$#'
-    identifier: variable.undefined
-    count: 1
-    path: interface/reports/appointments_report.php
   - message: '#^Variable \$rems_out might not be defined\.$#'
     identifier: variable.undefined
     count: 2
@@ -13731,10 +13719,6 @@ parameters:
   - message: '#^Variable \$srcdir might not be defined\.$#'
     identifier: variable.undefined
     count: 3
-    path: interface/reports/appointments_report.php
-  - message: '#^Variable \$totalAppointments might not be defined\.$#'
-    identifier: variable.undefined
-    count: 1
     path: interface/reports/appointments_report.php
   - message: '#^Variable \$code_types might not be defined\.$#'
     identifier: variable.undefined
