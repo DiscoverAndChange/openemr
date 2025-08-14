@@ -13708,10 +13708,6 @@ parameters:
     identifier: variable.undefined
     count: 2
     path: interface/reports/amc_tracking.php
-  - message: '#^Variable \$canceledAppointments might not be defined\.$#'
-    identifier: variable.undefined
-    count: 1
-    path: interface/reports/appointments_report.php
   - message: '#^Variable \$rems_out might not be defined\.$#'
     identifier: variable.undefined
     count: 2
@@ -17468,18 +17464,10 @@ parameters:
     identifier: empty.variable
     count: 1
     path: src/Common/Auth/OpenIDConnect/Entities/ClientEntity.php
-  - message: '#^Variable \$launchToken in empty\(\) always exists and is not falsy\.$#'
-    identifier: empty.variable
-    count: 1
-    path: src/Common/Auth/OpenIDConnect/Grant/CustomAuthCodeGrant.php
   - message: '#^Variable \$client in empty\(\) always exists and is not falsy\.$#'
     identifier: empty.variable
     count: 1
     path: src/Common/Auth/OpenIDConnect/Grant/CustomPasswordGrant.php
-  - message: '#^Class OpenEMR\\Common\\Auth\\OpenIDConnect\\SMARTSessionTokenContextBuilder constructor invoked with 2 parameters, 0\-1 required\.$#'
-    identifier: arguments.count
-    count: 1
-    path: src/Common/Auth/OpenIDConnect/IdTokenSMARTResponse.php
   - message: '#^Static method League\\OAuth2\\Server\\Exception\\UniqueTokenIdentifierConstraintViolationException\:\:create\(\) invoked with 1 parameter, 0 required\.$#'
     identifier: arguments.count
     count: 1
@@ -17496,10 +17484,6 @@ parameters:
     identifier: nullCoalesce.variable
     count: 2
     path: src/Common/Auth/OpenIDConnect/Repositories/RefreshTokenRepository.php
-  - message: '#^Variable \$userIdBinary in empty\(\) always exists and is not falsy\.$#'
-    identifier: empty.variable
-    count: 2
-    path: src/Common/Auth/UuidUserAccount.php
   - message: '#^Variable \$issues might not be defined\.$#'
     identifier: variable.undefined
     count: 1
