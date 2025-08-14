@@ -65,26 +65,24 @@ class CryptoGen implements CryptoInterface
     /**
      * Encrypts data using the standard encryption method
      *
-     * @param ?string $value          The data to encrypt
-     * @param ?string $customPassword If provided, keys will be derived from this password (standard keys will not be used)
-     * @param string  $keySource      The source of the standard keys. Options are 'drive' and 'database'
+     * @param  ?string $value          The data to encrypt
+     * @param  ?string $customPassword If provided, keys will be derived from this password (standard keys will not be used)
+     * @param  string  $keySource      The source of the standard keys. Options are 'drive' and 'database'
      * @return string The encrypted data
      */
     public function encryptStandard(?string $value, ?string $customPassword = null, string $keySource = 'drive'): string
     {
-        $encryptedValue = $this->encryptionVersion . $this->coreEncrypt($value, $customPassword, $keySource, $this->keyVersion);
-
-        return $encryptedValue;
+        return $this->encryptionVersion . $this->coreEncrypt($value, $customPassword, $keySource, $this->keyVersion);
     }
 
     /**
      * Decrypts data using the standard decryption method
      *
-     * @param ?string $value          The data to decrypt
-     * @param ?string $customPassword If provided, keys will be derived from this password (standard keys will not be used)
-     * @param string  $keySource      The source of the standard keys. Options are 'drive' and 'database'
-     * @param ?int    $minimumVersion The minimum encryption version supported (useful when accepting encrypted data
-     *                                from outside OpenEMR to prevent bad actors from using older versions)
+     * @param  ?string $value          The data to decrypt
+     * @param  ?string $customPassword If provided, keys will be derived from this password (standard keys will not be used)
+     * @param  string  $keySource      The source of the standard keys. Options are 'drive' and 'database'
+     * @param  ?int    $minimumVersion The minimum encryption version supported (useful when accepting encrypted data
+     *                                 from outside OpenEMR to prevent bad actors from using older versions)
      * @return false|string The decrypted data, or false if decryption fails
      */
     public function decryptStandard(?string $value, ?string $customPassword = null, string $keySource = 'drive', ?int $minimumVersion = null): false|string
@@ -124,29 +122,21 @@ class CryptoGen implements CryptoInterface
     /**
      * Checks if a crypt block is valid for use with the standard method
      *
-     * @param ?string $value The data to validate
+     * @param  ?string $value The data to validate
      * @return bool True if valid, false otherwise
      */
     public function cryptCheckStandard(?string $value): bool
     {
-        if (empty($value)) {
-            return false;
-        }
-
-        if (preg_match('/^00[1-6]/', $value)) {
-            return true;
-        } else {
-            return false;
-        }
+        return preg_match('/^00[1-6]/', $value) === 1;
     }
 
     /**
      * Core encryption function
      *
-     * @param ?string $sValue          Raw data to be encrypted
-     * @param ?string $customPassword  If null, standard keys are used. If provided, keys are derived from this password
-     * @param string  $keySource       The source of the keys. Options are 'drive' and 'database'
-     * @param ?string $keyNumber       The key number/version
+     * @param  ?string $sValue         Raw data to be encrypted
+     * @param  ?string $customPassword If null, standard keys are used. If provided, keys are derived from this password
+     * @param  string  $keySource      The source of the keys. Options are 'drive' and 'database'
+     * @param  ?string $keyNumber      The key number/version
      * @return string The encrypted data
      * @throws CryptoGenException If encryption fails due to critical errors
      */
@@ -154,7 +144,7 @@ class CryptoGen implements CryptoInterface
     {
         $keyNumber = isset($keyNumber) ? $keyNumber : $this->keyVersion;
 
-        if (!extension_loaded('openssl')) {
+        if (!$this->isOpenSSLExtensionLoaded()) {
             throw new CryptoGenException("OpenEMR Error : Encryption is not working because missing openssl extension.");
         }
 
@@ -165,33 +155,32 @@ class CryptoGen implements CryptoInterface
             $sSecretKeyHmac = $this->collectCryptoKey($keyNumber, "b", $keySource);
         } else {
             // customPassword mode, so turn the password into keys
-            $sSalt = RandomGenUtils::produceRandomBytes(32);
+            $sSalt = $this->getRandomBytes(32);
             if (empty($sSalt)) {
                 throw new CryptoGenException("OpenEMR Error : Random Bytes error - exiting");
             }
-            $sPreKey = hash_pbkdf2('sha384', $customPassword, $sSalt, 100000, 32, true);
-            $sSecretKey = hash_hkdf('sha384', $sPreKey, 32, 'aes-256-encryption', $sSalt);
-            $sSecretKeyHmac = hash_hkdf('sha384', $sPreKey, 32, 'sha-384-authentication', $sSalt);
+            $sPreKey = $this->hashPbkdf2('sha384', $customPassword, $sSalt, 100000, 32, true);
+            $sSecretKey = $this->hashHkdf('sha384', $sPreKey, 32, 'aes-256-encryption', $sSalt);
+            $sSecretKeyHmac = $this->hashHkdf('sha384', $sPreKey, 32, 'sha-384-authentication', $sSalt);
         }
 
         if (empty($sSecretKey) || empty($sSecretKeyHmac)) {
             throw new CryptoGenException("OpenEMR Error : Encryption is not working because key(s) is blank.");
         }
 
-        $iv = RandomGenUtils::produceRandomBytes(openssl_cipher_iv_length('aes-256-cbc'));
+        $iv = $this->getRandomBytes($this->getOpenSSLCipherIvLength('aes-256-cbc'));
         if (empty($iv)) {
             throw new CryptoGenException("OpenEMR Error : Random Bytes error - exiting");
         }
 
-        $processedValue = openssl_encrypt(
+        $processedValue = empty($sValue) ? '' : $this->openSSLEncrypt(
             $sValue,
             'aes-256-cbc',
             $sSecretKey,
-            OPENSSL_RAW_DATA,
             $iv
         );
 
-        $hmacHash = hash_hmac('sha384', $iv . $processedValue, $sSecretKeyHmac, true);
+        $hmacHash = $this->hashHmac('sha384', $iv . $processedValue, $sSecretKeyHmac, true);
 
         if ($sValue != "" && ($processedValue == "" || $hmacHash == "")) {
             throw new CryptoGenException("OpenEMR Error : Encryption is not working (encrypted value is blank or hmac hash is blank).");
@@ -212,17 +201,17 @@ class CryptoGen implements CryptoInterface
     /**
      * Core decryption function
      *
-     * @param string  $sValue         Encrypted data to be decrypted
-     * @param ?string $customPassword If null, standard keys are used. If provided, keys are derived from this password
-     * @param string  $keySource      The source of the keys. Options are 'drive' and 'database'
-     * @param ?string $keyNumber      The key number/version
+     * @param  string  $sValue         Encrypted data to be decrypted
+     * @param  ?string $customPassword If null, standard keys are used. If provided, keys are derived from this password
+     * @param  string  $keySource      The source of the keys. Options are 'drive' and 'database'
+     * @param  ?string $keyNumber      The key number/version
      * @return false|string The decrypted data, or false if decryption fails
      */
     private function coreDecrypt(string $sValue, ?string $customPassword = null, string $keySource = 'drive', ?string $keyNumber = null): false|string
     {
         $keyNumber = isset($keyNumber) ? $keyNumber : $this->keyVersion;
 
-        if (!extension_loaded('openssl')) {
+        if (!$this->isOpenSSLExtensionLoaded()) {
             error_log("OpenEMR Error : Decryption is not working because missing openssl extension.");
             return false;
         }
@@ -245,9 +234,9 @@ class CryptoGen implements CryptoInterface
             $sSalt = mb_substr($raw, 0, 32, '8bit');
             $raw = mb_substr($raw, 32, null, '8bit');
             // Now turn the password into keys
-            $sPreKey = hash_pbkdf2('sha384', $customPassword, $sSalt, 100000, 32, true);
-            $sSecretKey = hash_hkdf('sha384', $sPreKey, 32, 'aes-256-encryption', $sSalt);
-            $sSecretKeyHmac = hash_hkdf('sha384', $sPreKey, 32, 'sha-384-authentication', $sSalt);
+            $sPreKey = $this->hashPbkdf2('sha384', $customPassword, $sSalt, 100000, 32, true);
+            $sSecretKey = $this->hashHkdf('sha384', $sPreKey, 32, 'aes-256-encryption', $sSalt);
+            $sSecretKeyHmac = $this->hashHkdf('sha384', $sPreKey, 32, 'sha-384-authentication', $sSalt);
         }
 
         if (empty($sSecretKey) || empty($sSecretKeyHmac)) {
@@ -255,19 +244,18 @@ class CryptoGen implements CryptoInterface
             return false;
         }
 
-        $ivLength = openssl_cipher_iv_length('aes-256-cbc');
+        $ivLength = $this->getOpenSSLCipherIvLength('aes-256-cbc');
         $hmacHash = mb_substr($raw, 0, 48, '8bit');
         $iv = mb_substr($raw, 48, $ivLength, '8bit');
         $encrypted_data = mb_substr($raw, ($ivLength + 48), null, '8bit');
 
-        $calculatedHmacHash = hash_hmac('sha384', $iv . $encrypted_data, $sSecretKeyHmac, true);
+        $calculatedHmacHash = $this->hashHmac('sha384', $iv . $encrypted_data, $sSecretKeyHmac, true);
 
-        if (hash_equals($hmacHash, $calculatedHmacHash)) {
-            return openssl_decrypt(
+        if ($this->hashEquals($hmacHash, $calculatedHmacHash)) {
+            return $this->openSSLDecrypt(
                 $encrypted_data,
                 'aes-256-cbc',
                 $sSecretKey,
-                OPENSSL_RAW_DATA,
                 $iv
             );
         } else {
@@ -293,7 +281,7 @@ class CryptoGen implements CryptoInterface
     /**
      * Format exception message with stack trace
      *
-     * @param array $stackTrace Debug backtrace array
+     * @param  array $stackTrace Debug backtrace array
      * @return string Formatted stack trace string
      */
     private function formatExceptionMessage(array $stackTrace): string
@@ -320,13 +308,13 @@ class CryptoGen implements CryptoInterface
     /**
      * Decrypts AES256 encrypted data using version 2 algorithm
      *
-     * @param ?string $sValue              Data to decrypt
-     * @param ?string $customPassword If null, uses standard key. If provided, derives key from this password
+     * @param  ?string $sValue         Data to decrypt
+     * @param  ?string $customPassword If null, uses standard key. If provided, derives key from this password
      * @return false|string The decrypted data, or false if decryption fails
      */
     public function aes256DecryptTwo(?string $sValue, ?string $customPassword = null): false|string
     {
-        if (!extension_loaded('openssl')) {
+        if (!$this->isOpenSSLExtensionLoaded()) {
             error_log("OpenEMR Error : Decryption is not working because missing openssl extension.");
             return false;
         }
@@ -338,7 +326,7 @@ class CryptoGen implements CryptoInterface
             $sSecretKeyHmac = $this->collectCryptoKey("two", "b");
         } else {
             // Turn the password into a hash(note use binary) to use as the keys
-            $sSecretKey = hash("sha256", $customPassword, true);
+            $sSecretKey = $this->hash("sha256", $customPassword, true);
             $sSecretKeyHmac = $sSecretKey;
         }
 
@@ -347,25 +335,24 @@ class CryptoGen implements CryptoInterface
             return false;
         }
 
-        $raw = base64_decode($sValue, true);
+        $raw = empty($sValue) ? '' : base64_decode($sValue, true);
         if ($raw === false) {
             error_log("OpenEMR Error : Decryption did not work because illegal characters were noted in base64_encoded data.");
             return false;
         }
 
-        $ivLength = openssl_cipher_iv_length('aes-256-cbc');
+        $ivLength = $this->getOpenSSLCipherIvLength('aes-256-cbc');
         $hmacHash = mb_substr($raw, 0, 32, '8bit');
         $iv = mb_substr($raw, 32, $ivLength, '8bit');
         $encrypted_data = mb_substr($raw, ($ivLength + 32), null, '8bit');
 
-        $calculatedHmacHash = hash_hmac('sha256', $iv . $encrypted_data, $sSecretKeyHmac, true);
+        $calculatedHmacHash = $this->hashHmac('sha256', $iv . $encrypted_data, $sSecretKeyHmac, true);
 
-        if (hash_equals($hmacHash, $calculatedHmacHash)) {
-            return openssl_decrypt(
+        if ($this->hashEquals($hmacHash, $calculatedHmacHash)) {
+            return $this->openSSLDecrypt(
                 $encrypted_data,
                 'aes-256-cbc',
                 $sSecretKey,
-                OPENSSL_RAW_DATA,
                 $iv
             );
         } else {
@@ -391,13 +378,13 @@ class CryptoGen implements CryptoInterface
     /**
      * Decrypts AES256 encrypted data using version 1 algorithm
      *
-     * @param ?string $sValue              Data to decrypt
-     * @param ?string $customPassword If null, uses standard key. If provided, derives key from this password
+     * @param  ?string $sValue         Data to decrypt
+     * @param  ?string $customPassword If null, uses standard key. If provided, derives key from this password
      * @return false|string The decrypted data
      */
     public function aes256DecryptOne(?string $sValue, ?string $customPassword = null): false|string
     {
-        if (!extension_loaded('openssl')) {
+        if (!$this->isOpenSSLExtensionLoaded()) {
             error_log("OpenEMR Error : Decryption is not working because missing openssl extension.");
             return false;
         }
@@ -407,7 +394,7 @@ class CryptoGen implements CryptoInterface
             $sSecretKey = $this->collectCryptoKey();
         } else {
             // Turn the password into a hash to use as the key
-            $sSecretKey = hash("sha256", $customPassword);
+            $sSecretKey = $this->hash("sha256", $customPassword);
         }
 
         if (empty($sSecretKey)) {
@@ -415,18 +402,17 @@ class CryptoGen implements CryptoInterface
             return false;
         }
 
-        $raw = base64_decode($sValue);
+        $raw = empty($sValue) ? '' : base64_decode($sValue);
 
-        $ivLength = openssl_cipher_iv_length('aes-256-cbc');
+        $ivLength = $this->getOpenSSLCipherIvLength('aes-256-cbc');
 
         $iv = substr($raw, 0, $ivLength);
         $encrypted_data = substr($raw, $ivLength);
 
-        return openssl_decrypt(
+        return $this->openSSLDecrypt(
             $encrypted_data,
             'aes-256-cbc',
             $sSecretKey,
-            OPENSSL_RAW_DATA,
             $iv
         );
     }
@@ -436,28 +422,20 @@ class CryptoGen implements CryptoInterface
      * This function is only used for backward compatibility
      * TODO: Should be removed in the future
      *
-     * @param string $sValue Encrypted data to decrypt
+     * @param  string $sValue Encrypted data to decrypt
      * @return string Decrypted data
      */
     public function aes256Decrypt_mycrypt(string $sValue): string
     {
-        $sSecretKey = pack('H*', "bcb04b7e103a0cd8b54763051cef08bc55abe029fdebae5e1d417e2ffb2a00a3");
-        return rtrim(
-            mcrypt_decrypt(
-                MCRYPT_RIJNDAEL_256,
-                $sSecretKey,
-                base64_decode($sValue),
-                MCRYPT_MODE_ECB,
-                mcrypt_create_iv(
-                    mcrypt_get_iv_size(
-                        MCRYPT_RIJNDAEL_256,
-                        MCRYPT_MODE_ECB
-                    ),
-                    MCRYPT_RAND
-                )
-            ),
-            "\0"
-        );
+        if (!$this->isMcryptExtensionLoaded()) {
+            throw new CryptoGenException('The obsolete mcrypt extension is required to decrypt legacy data');
+        }
+        $rawValue = base64_decode($sValue);
+        $sSecretKey = $this->pack('H*', "bcb04b7e103a0cd8b54763051cef08bc55abe029fdebae5e1d417e2ffb2a00a3");
+        $ivSize = $this->mcryptGetIvSize();
+        $ivValue = $this->mcryptCreateIv($ivSize);
+        $data = $this->mcryptDecrypt($sSecretKey, $rawValue, $ivValue);
+        return rtrim($data, "\0");
     }
 
     /**
@@ -471,11 +449,12 @@ class CryptoGen implements CryptoInterface
      * key set from database, collect key set from drive, decrypt key set from drive using the database
      * key; caching the key will bypass all these steps).
      *
-     * @param string $version     The key number/version
-     * @param string $sub         The key sublabel
-     * @param string $keySource   The source of the standard keys. Options are 'drive' and 'database'
-     *                            The 'drive' keys are stored at sites/<site-dir>/documents/logs_and_misc/methods
-     *                            The 'database' keys are stored in the 'keys' sql table
+     * @param  string $version   The key number/version
+     * @param  string $sub       The key sublabel
+     * @param  string $keySource The source of the standard keys. Options are 'drive' and 'database'
+     *                           The 'drive' keys are stored at
+     *                           sites/<site-dir>/documents/logs_and_misc/methods The 'database'
+     *                           keys are stored in the 'keys' sql table
      * @return string The key in raw form
      * @throws CryptoGenException If key collection fails due to critical errors
      */
@@ -492,43 +471,43 @@ class CryptoGen implements CryptoInterface
 
         // If the key does not exist, then create it
         if ($keySource == 'database') {
-            $sqlValue = sqlQueryNoLog("SELECT `value` FROM `keys` WHERE `name` = ?", [$label]);
+            $sqlValue = $this->sqlQueryNoLog("SELECT `value` FROM `keys` WHERE `name` = ?", [$label]);
             if (empty($sqlValue['value'])) {
                 // Create a new key and place in database
                 // Produce a 256bit key (32 bytes equals 256 bits)
-                $newKey = RandomGenUtils::produceRandomBytes(32);
+                $newKey = $this->getRandomBytes(32);
                 if (empty($newKey)) {
                     throw new CryptoGenException("OpenEMR Error : Random Bytes error - exiting");
                 }
-                sqlStatementNoLog("INSERT INTO `keys` (`name`, `value`) VALUES (?, ?)", [$label, base64_encode($newKey)]);
+                $this->sqlStatementNoLog("INSERT INTO `keys` (`name`, `value`) VALUES (?, ?)", [$label, base64_encode($newKey)]);
             }
         } else { //$keySource == 'drive'
-            if (!file_exists($GLOBALS['OE_SITE_DIR'] . "/documents/logs_and_misc/methods/" . $label)) {
+            if (!$this->fileExists($GLOBALS['OE_SITE_DIR'] . "/documents/logs_and_misc/methods/" . $label)) {
                 // Create a key and place in drive
                 // Produce a 256bit key (32 bytes equals 256 bits)
-                $newKey = RandomGenUtils::produceRandomBytes(32);
+                $newKey = $this->getRandomBytes(32);
                 if (empty($newKey)) {
                     throw new CryptoGenException("OpenEMR Error : Random Bytes error - exiting");
                 }
                 if (($version == "one") || ($version == "two") || ($version == "three") || ($version == "four")) {
                     // older key versions that did not encrypt the key on the drive
-                    file_put_contents($GLOBALS['OE_SITE_DIR'] . "/documents/logs_and_misc/methods/" . $label, base64_encode($newKey));
+                    $this->filePutContents($GLOBALS['OE_SITE_DIR'] . "/documents/logs_and_misc/methods/" . $label, base64_encode($newKey));
                 } else {
-                    file_put_contents($GLOBALS['OE_SITE_DIR'] . "/documents/logs_and_misc/methods/" . $label, $this->encryptStandard($newKey, null, 'database'));
+                    $this->filePutContents($GLOBALS['OE_SITE_DIR'] . "/documents/logs_and_misc/methods/" . $label, $this->encryptStandard($newKey, null, 'database'));
                 }
             }
         }
 
         // Collect key
         if ($keySource == 'database') {
-            $sqlKey = sqlQueryNoLog("SELECT `value` FROM `keys` WHERE `name` = ?", [$label]);
+            $sqlKey = $this->sqlQueryNoLog("SELECT `value` FROM `keys` WHERE `name` = ?", [$label]);
             $key = base64_decode($sqlKey['value']);
         } else { //$keySource == 'drive'
             if (($version == "one") || ($version == "two") || ($version == "three") || ($version == "four")) {
                 // older key versions that did not encrypt the key on the drive
-                $key = base64_decode(rtrim(file_get_contents($GLOBALS['OE_SITE_DIR'] . "/documents/logs_and_misc/methods/" . $label)));
+                $key = base64_decode(rtrim($this->fileGetContents($GLOBALS['OE_SITE_DIR'] . "/documents/logs_and_misc/methods/" . $label)));
             } else {
-                $key = $this->decryptStandard(file_get_contents($GLOBALS['OE_SITE_DIR'] . "/documents/logs_and_misc/methods/" . $label), null, 'database');
+                $key = $this->decryptStandard($this->fileGetContents($GLOBALS['OE_SITE_DIR'] . "/documents/logs_and_misc/methods/" . $label), null, 'database');
             }
         }
 
@@ -537,7 +516,7 @@ class CryptoGen implements CryptoInterface
             if ($keySource == 'database') {
                 throw new CryptoGenException("OpenEMR Error : Key creation in database is not working - Exiting.");
             } else { //$keySource == 'drive'
-                if (!file_exists($GLOBALS['OE_SITE_DIR'] . "/documents/logs_and_misc/methods/" . $label)) {
+                if (!$this->fileExists($GLOBALS['OE_SITE_DIR'] . "/documents/logs_and_misc/methods/" . $label)) {
                     throw new CryptoGenException("OpenEMR Error : Key creation in drive is not working - Exiting.");
                 } else {
                     throw new CryptoGenException("OpenEMR Error : Key in drive is not compatible (ie. can not be decrypted) with key in database - Exiting.");
@@ -548,5 +527,311 @@ class CryptoGen implements CryptoInterface
         // Store key in cache and then return the key
         $this->keyCache[$cacheLabel] = $key;
         return $key;
+    }
+
+    /**
+     * Check if the OpenSSL extension is loaded.
+     * This is a wrapper to enable better testing.
+     *
+     * @codeCoverageIgnore
+     *
+     * @return bool
+     */
+    protected function isOpenSSLExtensionLoaded(): bool
+    {
+        return extension_loaded('openssl');
+    }
+
+    /**
+     * Return random bytes.
+     * This is a wrapper to enable better testing.
+     *
+     * @codeCoverageIgnore
+     *
+     * @return string
+     */
+    protected function getRandomBytes(int $length): string
+    {
+        return RandomGenUtils::produceRandomBytes($length);
+    }
+
+    /**
+     * Wrapper for hash_pbkdf2 to enable better testing.
+     *
+     * @codeCoverageIgnore
+     *
+     * @param  string $algo       Algorithm to use for hashing
+     * @param  string $password   The password to derive the key from
+     * @param  string $salt       The salt to use for derivation
+     * @param  int    $iterations Number of iterations
+     * @param  int    $length     Length of output key
+     * @param  bool   $rawOutput  Whether to return raw binary data
+     * @return string The derived key
+     */
+    protected function hashPbkdf2(string $algo, string $password, string $salt, int $iterations, int $length, bool $rawOutput): string
+    {
+        return hash_pbkdf2($algo, $password, $salt, $iterations, $length, $rawOutput);
+    }
+
+    /**
+     * Wrapper for hash_hkdf to enable better testing.
+     *
+     * @codeCoverageIgnore
+     *
+     * @param  string $algo   Algorithm to use for hashing
+     * @param  string $key    Input key material
+     * @param  int    $length Length of output key
+     * @param  string $info   Optional context and application specific information
+     * @param  string $salt   Optional salt value
+     * @return string The derived key
+     */
+    protected function hashHkdf(string $algo, string $key, int $length, string $info, string $salt): string
+    {
+        return hash_hkdf($algo, $key, $length, $info, $salt);
+    }
+
+    /**
+     * Wrapper for openssl_cipher_iv_length to enable better testing.
+     *
+     * @codeCoverageIgnore
+     *
+     * @param  string $cipher The cipher method
+     * @return int The length of the IV for the given cipher
+     */
+    protected function getOpenSSLCipherIvLength(string $cipher): int
+    {
+        return openssl_cipher_iv_length($cipher);
+    }
+
+    /**
+     * Wrapper for openssl_encrypt to enable better testing.
+     *
+     * @codeCoverageIgnore
+     *
+     * @param  string $data   The data to encrypt
+     * @param  string $cipher The cipher method
+     * @param  string $key    The encryption key
+     * @param  string $iv     The initialization vector
+     * @return string The encrypted data
+     */
+    protected function openSSLEncrypt(string $data, string $cipher, string $key, string $iv): string
+    {
+        // embed constants in these wrapper functions
+        // so they don't trigger when the extension
+        // isn't loaded.
+        $options = OPENSSL_RAW_DATA;
+        return openssl_encrypt($data, $cipher, $key, $options, $iv);
+    }
+
+    /**
+     * Wrapper for openssl_decrypt to enable better testing.
+     *
+     * @codeCoverageIgnore
+     *
+     * @param  string $data   The data to decrypt
+     * @param  string $cipher The cipher method
+     * @param  string $key    The decryption key
+     * @param  string $iv     The initialization vector
+     * @return false|string The decrypted data or false on failure
+     */
+    protected function openSSLDecrypt(string $data, string $cipher, string $key, string $iv): false|string
+    {
+        // embed constants in these wrapper functions
+        // so they don't trigger when the extension
+        // isn't loaded.
+        $options = OPENSSL_RAW_DATA;
+        return openssl_decrypt($data, $cipher, $key, $options, $iv);
+    }
+
+    /**
+     * Wrapper for hash_hmac to enable better testing.
+     *
+     * @codeCoverageIgnore
+     *
+     * @param  string $algo   The hashing algorithm
+     * @param  string $data   The data to hash
+     * @param  string $key    The key for HMAC
+     * @param  bool   $binary Whether to return raw binary data
+     * @return string The HMAC hash
+     */
+    protected function hashHmac(string $algo, string $data, string $key, bool $binary): string
+    {
+        return hash_hmac($algo, $data, $key, $binary);
+    }
+
+    /**
+     * Wrapper for hash_equals to enable better testing.
+     *
+     * @codeCoverageIgnore
+     *
+     * @param  string $knownString The known string
+     * @param  string $userString  The user-provided string
+     * @return bool True if strings match, false otherwise
+     */
+    protected function hashEquals(string $knownString, string $userString): bool
+    {
+        return hash_equals($knownString, $userString);
+    }
+
+    /**
+     * Wrapper for hash to enable better testing.
+     *
+     * @codeCoverageIgnore
+     *
+     * @param  string $algo   The hashing algorithm
+     * @param  string $data   The data to hash
+     * @param  bool   $binary Whether to return raw binary data
+     * @return string The hash
+     */
+    protected function hash(string $algo, string $data, bool $binary = false): string
+    {
+        return hash($algo, $data, $binary);
+    }
+
+    /**
+     * Wrapper for file_put_contents to enable better testing.
+     *
+     * @codeCoverageIgnore
+     *
+     * @param  string        $filename The file to write to
+     * @param  mixed         $data     The data to write
+     * @param  int           $flags    Optional flags
+     * @param  resource|null $context  Optional context
+     * @return int|false The number of bytes written or false on failure
+     */
+    protected function filePutContents(string $filename, mixed $data, int $flags = 0, $context = null): int|false
+    {
+        return file_put_contents($filename, $data, $flags, $context);
+    }
+
+    /**
+     * Wrapper for file_get_contents to enable better testing.
+     *
+     * @codeCoverageIgnore
+     *
+     * @param  string        $filename         The file to read from
+     * @param  bool          $use_include_path Optional flag to search include path
+     * @param  resource|null $context          Optional context
+     * @param  int           $offset           Optional offset to start reading from
+     * @param  int|null      $length           Optional maximum length to read
+     * @return string|false The file contents or false on failure
+     */
+    protected function fileGetContents(string $filename, bool $use_include_path = false, $context = null, int $offset = 0, ?int $length = null): string|false
+    {
+        return file_get_contents($filename, $use_include_path, $context, $offset, $length);
+    }
+
+    /**
+     * Wrapper for pack to enable better testing.
+     *
+     * @codeCoverageIgnore
+     *
+     * @param  string $format    The format string
+     * @param  mixed  ...$values The values to pack
+     * @return string The packed binary string
+     */
+    protected function pack(string $format, mixed ...$values): string
+    {
+        return pack($format, ...$values);
+    }
+
+    /**
+     * Wrapper for mcrypt_decrypt to enable better testing.
+     * Since mcrypt is obsolete already, we avoid workarounds
+     * for missing constants by hard-coding some of the arguments.
+     *
+     * @codeCoverageIgnore
+     *
+     * @param  string $key  The encryption key
+     * @param  string $data The data to decrypt
+     * @param  string $iv   The initialization vector
+     * @return string The decrypted data
+     */
+    protected function mcryptDecrypt(string $key, string $data, string $iv): string
+    {
+        return mcrypt_decrypt(MCRYPT_RIJNDAEL_256, $key, $data, MCRYPT_MODE_ECB, $iv);
+    }
+
+    /**
+     * Wrapper for mcrypt_create_iv to enable better testing.
+     * Since mcrypt is obsolete already, we avoid workarounds
+     * for missing constants by hard-coding MCRYPT_RAND.
+     *
+     * @codeCoverageIgnore
+     *
+     * @param  int $size The size of the IV
+     * @return string The initialization vector
+     */
+    protected function mcryptCreateIv(int $size): string
+    {
+        return mcrypt_create_iv($size, MCRYPT_RAND);
+    }
+
+    /**
+     * Wrapper for mcrypt_get_iv_size to enable better testing.
+     * Since mcrypt is obsolete already, we avoid having workarounds
+     * for missing constants by hard-coding the arguments.
+     *
+     * @codeCoverageIgnore
+     *
+     * @return int The IV size for the given cipher and mode
+     */
+    protected function mcryptGetIvSize(): int
+    {
+        return mcrypt_get_iv_size(MCRYPT_RIJNDAEL_256, MCRYPT_MODE_ECB);
+    }
+
+    /**
+     * Check if the mcrypt extension is loaded.
+     * This is a wrapper to enable better testing.
+     *
+     * @codeCoverageIgnore
+     *
+     * @return bool
+     */
+    protected function isMcryptExtensionLoaded(): bool
+    {
+        return extension_loaded('mcrypt');
+    }
+
+    /**
+     * Wrapper for sqlQueryNoLog to enable better testing.
+     *
+     * @codeCoverageIgnore
+     *
+     * @param  string $statement The SQL query statement
+     * @param  array  $binds     The parameter bindings for the query
+     * @return array|false The query result array or false on failure
+     */
+    protected function sqlQueryNoLog(string $statement, array $binds = []): array|false
+    {
+        return sqlQueryNoLog($statement, $binds);
+    }
+
+    /**
+     * Wrapper for sqlStatementNoLog to enable better testing.
+     *
+     * @codeCoverageIgnore
+     *
+     * @param  string $statement The SQL statement to execute
+     * @param  array  $binds     The parameter bindings for the statement
+     * @return mixed The result of the SQL statement execution
+     */
+    protected function sqlStatementNoLog(string $statement, array $binds = []): mixed
+    {
+        return sqlStatementNoLog($statement, $binds);
+    }
+
+    /**
+     * Wrapper for file_exists to enable better testing.
+     *
+     * @codeCoverageIgnore
+     *
+     * @param  string $filename The file name to check
+     * @return bool True if the file exists, false otherwise
+     */
+    protected function fileExists(string $filename): bool
+    {
+        return file_exists($filename);
     }
 }
