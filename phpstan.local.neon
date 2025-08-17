@@ -1,8 +1,4 @@
 parameters:
-  excludePaths:
-   - rector.php
-   - node_modules (?)
-   - ccdaservice/node_modules (?)
   ignoreErrors:
   - message: '#^Variable \$web_root might not be defined\.$#'
     identifier: variable.undefined
@@ -12872,6 +12868,10 @@ parameters:
     identifier: variable.undefined
     count: 2
     path: interface/patient_file/pos_checkout_ippf.php
+  - message: '#^Function receiptDetailLine invoked with 4 parameters, 5\-10 required\.$#'
+    identifier: arguments.count
+    count: 3
+    path: interface/patient_file/pos_checkout_normal.php
   - message: '#^Variable \$amount might not be defined\.$#'
     identifier: variable.undefined
     count: 1
@@ -12970,6 +12970,10 @@ parameters:
     path: interface/patient_file/report/custom_report.php
   - message: '#^Function cms_portal_call not found\.$#'
     identifier: function.notFound
+    count: 1
+    path: interface/patient_file/report/custom_report.php
+  - message: '#^Function postToGet invoked with 1 parameter, 2 required\.$#'
+    identifier: arguments.count
     count: 1
     path: interface/patient_file/report/custom_report.php
   - message: '#^Variable \$ISSUE_TYPES might not be defined\.$#'
@@ -13708,6 +13712,10 @@ parameters:
     identifier: variable.undefined
     count: 2
     path: interface/reports/amc_tracking.php
+  - message: '#^Variable \$canceledAppointments might not be defined\.$#'
+    identifier: variable.undefined
+    count: 1
+    path: interface/reports/appointments_report.php
   - message: '#^Variable \$rems_out might not be defined\.$#'
     identifier: variable.undefined
     count: 2
@@ -17200,6 +17208,10 @@ parameters:
     identifier: variable.undefined
     count: 1
     path: portal/report/pat_ledger.php
+  - message: '#^Function postToGet invoked with 1 parameter, 2 required\.$#'
+    identifier: arguments.count
+    count: 1
+    path: portal/report/portal_custom_report.php
   - message: '#^Variable \$ISSUE_TYPES might not be defined\.$#'
     identifier: variable.undefined
     count: 1
@@ -17568,6 +17580,10 @@ parameters:
     identifier: return.missing
     count: 1
     path: src/Core/Header.php
+  - message: '#^Variable \$vars in isset\(\) always exists and is not nullable\.$#'
+    identifier: isset.variable
+    count: 1
+    path: src/Cqm/Qdm/BaseTypes/AbstractType.php
   - message: '#^Class OpenEMR\\Cqm\\CqmClient constructor invoked with 0 parameters, 2\-4 required\.$#'
     identifier: arguments.count
     count: 1
