@@ -20,6 +20,12 @@ class FhirRouteFinder implements IRouteFinder
         // TODO: this is where we can differentiate between different FHIR versions or profiles
         $routes = include __DIR__ . '/../../../../apis/routes/_rest_routes_fhir_r4_us_core_3_1_0.inc.php';
 
+        // TODO: if we have US Core 7 enabled, we should load the routes for that version
+        $updatedRoutes = include __DIR__ . '/../../../../apis/routes/_rest_routes_fhir_r4_us_core_7_0_0.inc.php';
+        if (!empty($updatedRoutes)) {
+            $routes = array_merge($routes, $updatedRoutes);
+        }
+
         // This method is intended to handle the request and extend routes.
         // Implementation details would depend on the specific requirements of the application.
         // For example, you might want to add custom routes or modify existing ones.

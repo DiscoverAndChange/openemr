@@ -1053,13 +1053,13 @@ return array(
      *      security={{"openemr_auth":{}}}
      *  )
      */
-    "GET /fhir/Coverage" => function (HttpRestRequest $request) {
+    "GET /fhir/Coverage" => function (HttpRestRequest $request, OEGlobalsBag $globalsBag) {
         if ($request->isPatientRequest()) {
             // only allow access to data of binded patient
-            $return = (new FhirCoverageRestController())->getAll($request->getQueryParams(), $request->getPatientUUIDString());
+            $return = (new FhirCoverageRestController($globalsBag))->getAll($request->getQueryParams(), $request->getPatientUUIDString());
         } else {
             RestConfig::request_authorization_check($request, "admin", "super");
-            $return = (new FhirCoverageRestController())->getAll($request->getQueryParams());
+            $return = (new FhirCoverageRestController($globalsBag))->getAll($request->getQueryParams());
         }
 
         return $return;

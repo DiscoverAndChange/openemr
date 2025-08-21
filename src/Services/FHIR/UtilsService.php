@@ -446,4 +446,14 @@ class UtilsService
         }
         return $parsed_reference;
     }
+
+    public static function createPeriod(string $start, ?string $end = null): FHIRPeriod
+    {
+        $period = new FHIRPeriod();
+        $period->setStart(new FHIRDateTime(self::getLocalDateAsUTC($start)));
+        if (!empty($end)) {
+            $period->setEnd(new FHIRDateTime(self::getLocalDateAsUTC($end)));
+        }
+        return $period;
+    }
 }

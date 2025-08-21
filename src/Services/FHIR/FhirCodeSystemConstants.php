@@ -88,4 +88,14 @@ class FhirCodeSystemConstants
     const HL7_SDC_TASK_TEMP = "https://build.fhir.org/ig/HL7/sdc/CodeSystem-temp.html";
 
     const HL7_SDC_TASK_SERVICE_REQUEST = "http://hl7.org/fhir/CodeSystem/task-code";
+
+    const US_CORE_VERSION_8_0_0 = "8.0.0";
+
+    const US_CORE_VERSION_6_1_0 = "6.1.0";
+    const US_CORE_VERSION_7_0_0 = "7.0.0";
+    const US_CORE_VERSION_3_1_1 = "3.1.1";
+    const VSAC_PayerType_SOP = 'http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.114222.4.11.3591';
+
+    // used for insurance coverage subscriber relationship
+    const HL7_SUBSCRIBER_RELATIONSHIP = "http://terminology.hl7.org/CodeSystem/subscriber-relationship";
 }

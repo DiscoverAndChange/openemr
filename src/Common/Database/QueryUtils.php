@@ -152,7 +152,7 @@ class QueryUtils
      * @param  array   $binds      binded variables array (optional)
      * @param  noLog   boolean     if true the sql statement bypasses the database logger, false logs the sql statement
      * @throws SqlQueryException Thrown if there is an error in the database executing the statement
-     * @return recordset
+     * @return recordset|false
      */
     public static function sqlStatementThrowException($statement, $binds, $noLog = false)
     {

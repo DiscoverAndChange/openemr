@@ -2,12 +2,12 @@
 
 namespace OpenEMR\RestControllers\FHIR;
 
-use OpenEMR\Services\FHIR\FhirValidationService;
+use OpenEMR\Core\OEGlobalsBag;
+use OpenEMR\FHIR\R4\FHIRDomainResource\FHIRCoverage;
 use OpenEMR\Services\FHIR\FhirCoverageService;
 use OpenEMR\Services\FHIR\FhirResourcesService;
 use OpenEMR\RestControllers\RestControllerHelper;
 use OpenEMR\FHIR\R4\FHIRResource\FHIRBundle\FHIRBundleEntry;
-use OpenEMR\Validators\ProcessingResult;
 
 /**
  * FHIR Organization Service
@@ -20,15 +20,13 @@ use OpenEMR\Validators\ProcessingResult;
  */
 class FhirCoverageRestController
 {
-    private $fhirCoverage;
-    private $fhirService;
-    private $fhirValidationService;
+    private OEGlobalsBag $globalsBag;
 
-    public function __construct()
+    private string $fhirProfile = '';
+
+    public function __construct(OEGlobalsBag $globalsBag)
     {
-        $this->fhirService = new FhirResourcesService();
-        $this->fhirCoverage = new FhirCoverageService();
-        $this->fhirValidationService = new FhirValidationService();
+        $this->globalsBag = $globalsBag;
     }
 
     /**
@@ -40,17 +38,21 @@ class FhirCoverageRestController
      */
     public function getAll($searchParams, $puuidBind = null)
     {
-        $processingResult = $this->fhirCoverage->getAll($searchParams, $puuidBind);
+        $coverageService = new FhirCoverageService();
+        $processingResult = $coverageService->getAll($searchParams, $puuidBind);
         $bundleEntries = array();
         foreach ($processingResult->getData() as $searchResult) {
-            $bundleEntry = [
-                'fullUrl' =>  $GLOBALS['site_addr_oath'] . ($_SERVER['REDIRECT_URL'] ?? '') . '/' . $searchResult->getId(),
-                'resource' => $searchResult
-            ];
-            $fhirBundleEntry = new FHIRBundleEntry($bundleEntry);
-            array_push($bundleEntries, $fhirBundleEntry);
+            if ($searchResult instanceof FHIRCoverage) {
+                $bundleEntry = [
+                    'fullUrl' =>  $this->globalsBag->get('site_addr_oath') . ($_SERVER['REDIRECT_URL'] ?? '') . '/' . $searchResult->getId(),
+                    'resource' => $searchResult
+                ];
+                $fhirBundleEntry = new FHIRBundleEntry($bundleEntry);
+                array_push($bundleEntries, $fhirBundleEntry);
+            }
         }
-        $bundleSearchResult = $this->fhirService->createBundle('Coverage', $bundleEntries, false);
+        $fhirBundleService = new FhirResourcesService();
+        $bundleSearchResult = $fhirBundleService->createBundle('Coverage', $bundleEntries, false);
         $searchResponseBody = RestControllerHelper::responseHandler($bundleSearchResult, null, 200);
         return $searchResponseBody;
     }
@@ -63,7 +65,18 @@ class FhirCoverageRestController
      */
     public function getOne($fhirId, $puuidBind = null)
     {
-        $processingResult = $this->fhirCoverage->getOne($fhirId, $puuidBind);
+        $coverageService = new FhirCoverageService();
+        $processingResult = $coverageService->getOne($fhirId, $puuidBind);
         return RestControllerHelper::handleFhirProcessingResult($processingResult, 200);
+    }
+
+    /**
+     * Used for specifying the FHIR profile the resource should conform to.
+     * @param string $string
+     * @return void
+     */
+    public function setResourceProfile(string $string): void
+    {
+        $this->fhirProfile = $string;
     }
 }

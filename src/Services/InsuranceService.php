@@ -77,13 +77,21 @@ class InsuranceService extends BaseService
     {
         $sql = "SELECT `insurance_data`.*,
                        `puuid`,
-                       `insureruuid`
+                       `insureruuid`,
+                       `insurer_name`,
+                       `insurer_source_of_payment_id`,
+                       `insurer_source_of_payment_description`
                 FROM `insurance_data`
                 LEFT JOIN (
                     SELECT
                     `uuid` AS `insureruuid`,
-                    `id` AS `insurerid`
+                    `id` AS `insurerid`,
+                    `name` AS `insurer_name`,
+                    'cqm_sop' AS `insurer_source_of_payment_id`,
+                    `valueset`.`description` AS `insurer_source_of_payment_description`
                     FROM `insurance_companies`
+                    -- oid 2.16.840.1.114222.4.11.3591 is the SOP value set
+                    LEFT JOIN valueset ON insurance_companies.`cqm_sop` = `valueset`.`code` AND `valueset`.`valueset` = '2.16.840.1.114222.4.11.3591'
                     ) `insurance_company_data` ON `insurance_data`.`provider` = `insurance_company_data`.`insurerid`
                 LEFT JOIN (
                     SELECT
