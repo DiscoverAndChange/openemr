@@ -195,6 +195,13 @@ class FhirObservationSocialHistoryService extends FhirServiceBase implements IPa
         // convert each record into it's own openEMR record array
 
         foreach ($observationCodesToReturn as $code) {
+            if (empty($uuidMappings[$code])) {
+                $this->getSystemLogger()->errorLogCaller("FhirObservationSocialHistoryService->parseSocialHistoryIntoObservationRecords() - No uuid mapping found for code: " . $code, [
+                    'record' => $record,
+                    'uuid' => $record['uuid'],
+                    'mappings' => $uuidMappings,
+                ]);
+            }
             $vitalsRecord = [
                 "code" => $code
                 ,"description" => $this->getDescriptionForCode($code)
