@@ -9,7 +9,7 @@ use OpenEMR\Core\OEHttpKernel;
 use OpenEMR\Events\RestApiExtend\RestApiCreateEvent;
 use OpenEMR\RestControllers\Finder\IRouteFinder;
 
-class FhirRouteFinder implements IRouteFinder
+readonly class FhirRouteFinder implements IRouteFinder
 {
     public function __construct(private OEHttpKernel $kernel)
     {
@@ -20,8 +20,8 @@ class FhirRouteFinder implements IRouteFinder
         // TODO: this is where we can differentiate between different FHIR versions or profiles
         $routes = include __DIR__ . '/../../../../apis/routes/_rest_routes_fhir_r4_us_core_3_1_0.inc.php';
 
-        // TODO: if we have US Core 7 enabled, we should load the routes for that version
-        $updatedRoutes = include __DIR__ . '/../../../../apis/routes/_rest_routes_fhir_r4_us_core_7_0_0.inc.php';
+        // TODO: if we have US Core 8 enabled, we should load the routes for that version
+        $updatedRoutes = include __DIR__ . '/../../../../apis/routes/_rest_routes_fhir_r4_us_core_8_0_0.inc.php';
         if (!empty($updatedRoutes)) {
             $routes = array_merge($routes, $updatedRoutes);
         }
@@ -30,8 +30,7 @@ class FhirRouteFinder implements IRouteFinder
         // Implementation details would depend on the specific requirements of the application.
         // For example, you might want to add custom routes or modify existing ones.
         $restApiCreateEvent = new RestApiCreateEvent([], $routes, [], $request);
-        $restApiCreateEvent = $this->kernel->getEventDispatcher()->dispatch($restApiCreateEvent, RestApiCreateEvent::EVENT_HANDLE, 10);
-        $routes = $restApiCreateEvent->getFHIRRouteMap();
-        return $routes;
+        $restApiCreateEvent = $this->kernel->getEventDispatcher()->dispatch($restApiCreateEvent, RestApiCreateEvent::EVENT_HANDLE);
+        return $restApiCreateEvent->getFHIRRouteMap();
     }
 }

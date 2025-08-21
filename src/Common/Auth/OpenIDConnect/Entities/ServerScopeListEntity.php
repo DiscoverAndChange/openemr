@@ -328,6 +328,9 @@ class ServerScopeListEntity
         ];
     }
 
+    /**
+     * @return string[]
+     */
     public function getAllSupportedScopesList(): array
     {
 
