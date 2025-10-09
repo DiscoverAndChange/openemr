@@ -86,7 +86,6 @@ trait FhirObservationTrait
      * @param bool $encode Indicates if the returned resource is encoded into a string. Defaults to True.
      * @return FHIRObservation|string the FHIR Resource. Returned format is defined using $encode parameter.
      */
-    public function parseObservationOpenEMRRecord($dataRecord = [], $encode = false): FHIRDomainResource|string
     public function parseObservationOpenEMRRecord(array $dataRecord = [], bool $encode = false): FHIRDomainResource|string
     {
         // AI-generated implementation start
