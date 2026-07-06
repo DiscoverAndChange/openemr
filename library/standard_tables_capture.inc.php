@@ -416,7 +416,11 @@ function snomedRF2_import()
     // set up paths
     $dir_snomed = OEGlobalsBag::getInstance()->getString('temporary_files_dir') . "/SNOMED/";
     // $sub_path="Terminology/Content/";
-    $sub_path = "Full/Terminology/";
+    // RF2 releases place the terminology files under different subtrees depending on the
+    // package. The International/US "Full" packages ship Full/Terminology/, while Snapshot-only
+    // editions such as the UK Monolith ship Snapshot/Terminology/. Try each in order; "Full"
+    // is checked first to preserve prior behaviour for the International releases.
+    $candidate_subpaths = ["Full/Terminology/", "Snapshot/Terminology/"];
     $dir = $dir_snomed;
     $dir = str_replace('\\', '/', $dir);
 
@@ -431,45 +435,56 @@ function snomedRF2_import()
     }
     //}
 
+    // Map each RF2 terminology file to its destination table using an anchored prefix match
+    // (the RF2 file naming standard is sct2_<Type>_...). This avoids the loose substring
+    // collisions of the previous str_contains() approach - most importantly it keeps
+    // sct2_RelationshipConcreteValues_* (a different column layout, present in the UK/International
+    // packages) out of sct2_relationship, and never confuses sct2_StatedRelationship_* with
+    // sct2_Relationship_*. Files with no destination table (e.g. sct2_sRefset_OWLExpression*,
+    // sct2_RelationshipConcreteValues_*) are intentionally skipped.
+    $file_table_map = [
+        "sct2_Concept_" => "sct2_concept",
+        "sct2_Description_" => "sct2_description",
+        "sct2_TextDefinition_" => "sct2_textdefinition",
+        "sct2_Identifier_" => "sct2_identifier",
+        "sct2_StatedRelationship_" => "sct2_statedrelationship",
+        "sct2_Relationship_" => "sct2_relationship",
+    ];
+
     // reading the SNOMED directory and identifying the files to import and replacing the variables by originals values.
     if (is_dir($dir) && $handle = opendir($dir)) {
         while (false !== ($filename = readdir($handle))) {
             if ($filename != "." && $filename != ".." && !strpos($filename, "zip")) {
-                $path = $dir . "" . $filename . "/" . $sub_path;
-                if (!(is_dir($path))) {
-                    $path = $dir . "" . $filename . "/RF2Release/" . $sub_path;
+                // Locate the terminology directory for this extracted release, checking each
+                // supported subtree (and the RF2Release/ wrapper that some packages add).
+                $path = "";
+                foreach ($candidate_subpaths as $subpath) {
+                    if (is_dir($dir . "" . $filename . "/" . $subpath)) {
+                        $path = $dir . "" . $filename . "/" . $subpath;
+                        break;
+                    }
+                    if (is_dir($dir . "" . $filename . "/RF2Release/" . $subpath)) {
+                        $path = $dir . "" . $filename . "/RF2Release/" . $subpath;
+                        break;
+                    }
                 }
-                if (is_dir($path) && $handle1 = opendir($path)) {
+                if ($path !== "" && $handle1 = opendir($path)) {
                     while (false !== ($filename1 = readdir($handle1))) {
                         $load_script = "Load data local infile '#FILENAME#' into table #TABLE# fields terminated by '\\t' ESCAPED BY '' lines terminated by '\\n' ignore 1 lines   ";
                         $array_replace = ["#FILENAME#","#TABLE#"];
                         if ($filename1 != "." && $filename1 != "..") {
                             $file_replace = $path . $filename1;
-                            if (str_contains($filename1, "Concept")) {
-                                $new_str = str_replace($array_replace, [$file_replace,"sct2_concept"], $load_script);
-                            }
-                            if (str_contains($filename1, "Description")) {
-                                $new_str = str_replace($array_replace, [$file_replace,"sct2_description"], $load_script);
-                            }
-                            if (str_contains($filename1, "Identifier")) {
-                                $new_str = str_replace($array_replace, [$file_replace,"sct2_identifier"], $load_script);
-                            }
-                            if (str_contains($filename1, "Relationship")) {
-                                $new_str = str_replace($array_replace, [$file_replace,"sct2_relationship"], $load_script);
-                            }
-                            if (str_contains($filename1, "StatedRelationship")) {
-                                $new_str = str_replace($array_replace, [$file_replace,"sct2_statedrelationship"], $load_script);
-                            }
-                            if (str_contains($filename1, "TextDefinition")) {
-                                $new_str = str_replace($array_replace, [$file_replace,"sct2_textdefinition"], $load_script);
-                            }
-                            if ($new_str != '') {
-                                sqlStatement($new_str);
+                            foreach ($file_table_map as $prefix => $table) {
+                                if (str_starts_with($filename1, $prefix)) {
+                                    $new_str = str_replace($array_replace, [$file_replace, $table], $load_script);
+                                    sqlStatement($new_str);
+                                    break;
+                                }
                             }
                         }
                     }
+                    closedir($handle1);
                 }
-                closedir($handle1);
             }
         }
         closedir($handle);
@@ -483,6 +498,79 @@ function snomedRF2_import()
     }
 
     return true;
+}
+
+/**
+ * Reads a SNOMED CT RF2 release's package descriptor
+ * (release_package_information.json) directly from inside the release zip
+ * WITHOUT extracting the archive to disk. Only the single descriptor entry is
+ * decompressed into memory, so this is fast (a few milliseconds) even for
+ * multi-hundred-megabyte packages and leaves no temporary files behind.
+ *
+ * The entry is matched by basename because the archive's top-level folder name
+ * varies by edition and date (e.g. SnomedCT_MonolithRF2_PRODUCTION_<timestamp>/).
+ *
+ * @param string $zip_path Absolute path to the release zip file.
+ * @return array|null The decoded descriptor, or null if it cannot be read (for
+ *                    example older packages that predate the descriptor file).
+ */
+function snomed_read_package_descriptor($zip_path)
+{
+    if (!class_exists('ZipArchive') || !file_exists($zip_path)) {
+        return null;
+    }
+    $za = new ZipArchive();
+    if ($za->open($zip_path) !== true) {
+        return null;
+    }
+    $json = false;
+    for ($i = 0; $i < $za->numFiles; $i++) {
+        if (basename((string) $za->getNameIndex($i)) === 'release_package_information.json') {
+            $json = $za->getFromIndex($i);
+            break;
+        }
+    }
+    $za->close();
+    if ($json === false) {
+        return null;
+    }
+    $data = json_decode($json, true);
+    return is_array($data) ? $data : null;
+}
+
+/**
+ * Derives a precise SNOMED CT UK edition revision-version string from a package
+ * descriptor (see snomed_read_package_descriptor()). Distinguishes the
+ * drug-inclusive UK Monolith edition from a clinical-only or drug-only UK
+ * package by inspecting the bundled module ids and language reference sets.
+ *
+ * @param array $descriptor The decoded release_package_information.json.
+ * @return string|null e.g. 'UK:Monolith', 'UK:Clinical', 'UK:Drug', or null
+ *                     when the descriptor does not identify a UK edition.
+ */
+function snomed_uk_version_from_descriptor($descriptor)
+{
+    // UK module / language-refset ids that identify the bundled content.
+    $uk_clinical_module = '999000011000000103';
+    $uk_drug_module = '999000011000001104';
+    $uk_pharmacy_refset = '999000691000001104';
+
+    // Cast to strings: PHP converts numeric-string array keys to integers, so
+    // array_keys() would otherwise return ints that fail the strict in_array().
+    $modules = array_map('strval', array_keys($descriptor['modules'] ?? []));
+    $language_refsets = array_filter(array_map('trim', explode(',', (string) ($descriptor['languageRefset'] ?? ''))));
+
+    $has_clinical = in_array($uk_clinical_module, $modules, true);
+    $has_drug = in_array($uk_drug_module, $modules, true) || in_array($uk_pharmacy_refset, $language_refsets, true);
+
+    if ($has_clinical && $has_drug) {
+        return 'UK:Monolith'; // integrated: International core + UK clinical + UK drug extensions
+    } elseif ($has_drug) {
+        return 'UK:Drug';
+    } elseif ($has_clinical) {
+        return 'UK:Clinical';
+    }
+    return null;
 }
 
 // Function to import ICD tables $type differentiates ICD 9, 10 and eventually 11 (circa 2018 :-) etc.
