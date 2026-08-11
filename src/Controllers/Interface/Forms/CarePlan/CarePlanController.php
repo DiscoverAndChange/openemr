@@ -230,6 +230,7 @@ class CarePlanController
         $endDates = $this->asArray($postData['end_date'] ?? null);
         $proposedDates = $this->asArray($postData['proposed_date'] ?? null);
         $planStatuses = $this->asArray($postData['plan_status'] ?? null);
+        $engagementCategories = $this->asArray($postData['plan_engagement_category'] ?? null);
         $reasonCodes = $this->asArray($postData['reasonCode'] ?? null);
         $reasonStatuses = $this->asArray($postData['reasonCodeStatus'] ?? null);
         $reasonTexts = $this->asArray($postData['reasonCodeText'] ?? null);
@@ -276,6 +277,9 @@ class CarePlanController
                 'reason_description' => $reasonDescription,
                 'reason_date_low' => $reasonLow,
                 'reason_date_high' => $reasonHigh,
+                'plan_engagement_category' => $this->carePlanFormService->normalizeNullableString(
+                    $this->stringAt($engagementCategories, $key)
+                ),
             ];
         }
 

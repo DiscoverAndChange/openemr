@@ -153,7 +153,8 @@ class CarePlanFormService
             reason_status = ?,
             reason_description = ?,
             reason_date_low = ?,
-            reason_date_high = ?";
+            reason_date_high = ?,
+            plan_engagement_category = ?";
 
         QueryUtils::sqlStatementThrowException(
             "INSERT INTO `" . self::TABLE_NAME . "` SET " . $sets,
@@ -178,6 +179,7 @@ class CarePlanFormService
                 $data['reason_description'],
                 $data['reason_date_low'],
                 $data['reason_date_high'],
+                $data['plan_engagement_category'],
             ]
         );
     }
