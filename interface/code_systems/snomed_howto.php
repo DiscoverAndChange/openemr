@@ -41,7 +41,13 @@ use OpenEMR\Core\Header;
             <li><?php echo xlt("Return to this page and you will be able to complete the Snomed installation process by clicking on the SNOMED section header"); ?>
             </li>
         </ol>
-        <h5 class="text-danger"><?php echo xlt("NOTE: Only the Biannual International Snomed Releases and the US Snomed Releases are currently supported"); ?></h5>
+        <h5 class="text-danger"><?php echo xlt("NOTE: Only the Biannual International Snomed Releases, the US Snomed Releases, and the UK Edition (Monolith) Releases are currently supported"); ?></h5>
         <h5 class="text-danger"><?php echo xlt("The following International Snomed Release languages are supported"); ?>: <?php echo xlt("English"); ?>, <?php echo xlt("Spanish"); ?></h5>
+        <h5 class="text-danger"><?php echo xlt("The UK SNOMED CT Edition (Monolith RF2) is also supported"); ?></h5>
+        <p>
+            <?php echo xlt("The UK Monolith is an integrated, Snapshot-only release that bundles the International Edition together with the UK Clinical and UK Drug (dm+d) extensions. It is distributed by NHS England via TRUD") .
+            " (<a href='https://isd.digital.nhs.uk/trud' target='_blank' rel='noopener'>https://isd.digital.nhs.uk/trud</a>). " .
+            xlt("Place the downloaded release zip (for example 'uk_sct2mo_....zip' or 'SnomedCT_MonolithRF2_PRODUCTION_....zip') into contrib/snomed. The specific edition (Monolith, Clinical, or Drug) is detected automatically from the release package information"); ?>.
+        </p>
     </p>
 </div>

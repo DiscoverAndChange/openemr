@@ -32,6 +32,9 @@ require_once("../../interface/globals.php");
 use OpenEMR\Common\Acl\AclMain;
 use OpenEMR\Core\OEGlobalsBag;
 
+// for snomed_read_package_descriptor()/snomed_uk_version_from_descriptor() used below
+require_once("$srcdir/standard_tables_capture.inc.php");
+
 // Ensure script doesn't time out and has enough memory
 set_time_limit(0);
 ini_set('memory_limit', '150M');
@@ -225,7 +228,23 @@ if (is_dir($mainPATH)) {
                     array_push($revisions, $temp_date);
                     $supported_file = 1;
                 } else {
-                    // nothing
+                    // No SNOMED file-name pattern matched. Fall back to reading the release
+                    // package descriptor (release_package_information.json) from inside the zip --
+                    // in memory, without extracting -- and stage the file as a UK RF2 edition when
+                    // the descriptor identifies one. This keeps UK support independent of the
+                    // release file name (the Monolith, Clinical, or Drug packages, or a renamed
+                    // TRUD download) by keying entirely off the bundled modules / language refsets.
+                    $descriptor = snomed_read_package_descriptor($file);
+                    $descriptor_version = empty($descriptor) ? null : snomed_uk_version_from_descriptor($descriptor);
+                    if (!empty($descriptor_version) && !empty($descriptor['effectiveTime'])) {
+                        $effective_time = (string) $descriptor['effectiveTime'];
+                        $version = $descriptor_version;
+                        $rf2 = true;
+                        $date_release = substr($effective_time, 0, 4) . "-" . substr($effective_time, 4, 2) . "-" . substr($effective_time, 6, 2);
+                        $temp_date = ['date' => $date_release, 'version' => $version, 'path' => $file];
+                        array_push($revisions, $temp_date);
+                        $supported_file = 1;
+                    }
                 }
             } elseif (is_numeric(strpos((string) $db, "ICD"))) {
                 $qry_str = "SELECT `load_checksum`,`load_source`,`load_release_date` FROM `supported_external_dataloads` WHERE `load_type` = ? and `load_filename` = ? and `load_checksum` = ? ORDER BY `load_release_date` DESC";
